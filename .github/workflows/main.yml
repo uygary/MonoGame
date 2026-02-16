@@ -24,7 +24,10 @@ jobs:
             shell: bash
           - os: ubuntu-24.04
             platform: linux
-            shell: bash      
+            shell: bash  
+          - os: ubuntu-22.04-arm
+            platform: linux-arm
+            shell: bash  
       fail-fast: false
     defaults:
       run:
@@ -48,6 +51,7 @@ jobs:
       - name: Generate global.json
         run: |
           echo '{ "sdk": { "version": "${{ env.DotnetVersion }}" } }' > global.json
+          echo "runner.arch=${{ runner.arch }}"
 
       - name: Setup .NET Core SDK
         uses: actions/setup-dotnet@v5
@@ -56,6 +60,7 @@ jobs:
           global-json-file: "./global.json"
           
       - name: Setup Android Dependencies
+        if: runner.arch != 'arm64'
         uses: monogame/monogame-actions/install-android-dependencies@v1
 
       - name: Setup DotNet on Windows
@@ -64,7 +69,7 @@ jobs:
           dotnet workload install android ios
 
       - name: Setup DotNet on linux
-        if: runner.environment == 'github-hosted' && runner.os == 'Linux'
+        if: runner.environment == 'github-hosted' && runner.os == 'Linux' && runner.arch == 'x64'
         run: |
           dotnet workload install android
 
@@ -90,8 +95,16 @@ jobs:
 
       - name: Setup Premake5
         uses: abel0b/setup-premake@v2.4
+        if: runner.os != 'Linux' || runner.arch != 'ARM64'
         with:
           version: "5.0.0-beta2"
+      - name: Build Premake5
+        if: runner.os == 'Linux' && runner.arch == 'ARM64'
+        run: |
+          git clone https://github.com/premake/premake-core.git ${GITHUB_WORKSPACE}/premake-core
+          cd ${GITHUB_WORKSPACE}/premake-core
+          ./Bootstrap.sh
+          echo "${GITHUB_WORKSPACE}/premake-core/bin/release" >> "$GITHUB_PATH"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -139,12 +152,23 @@ jobs:
           dotnet restore Templates/MonoGame.Templates.VSExtension
 
       - name: Build
+        if: runner.os != 'Linux' || runner.arch != 'ARM64'
         run: |
           dotnet run --project build/Build.csproj -- --target=Default
         env:
           DOTNET_SYSTEM_NET_SECURITY_NOREVOCATIONCHECKBYDEFAULT: 1 # android compilation is failing randomly due to downloads from microsofts website during it
 
+      - name: Build
+        if: runner.os == 'Linux' && runner.arch == 'ARM64'
+        run: |
+          dotnet run --project build/Build.csproj -- --target="Build Shaders"
+          dotnet run --project build/Build.csproj -- --target="Build Native"
+          dotnet run --project build/Build.csproj -- --target="Build Content Pipeline"
+        env:
+          DOTNET_SYSTEM_NET_SECURITY_NOREVOCATIONCHECKBYDEFAULT: 1 # android compilation is failing randomly due to downloads from microsofts website during it
+          
       - name: Run Tools Tests
+        if: runner.os != 'Linux' || runner.arch != 'ARM64'
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then
                 dotnet test Tools/MonoGame.Tools.Tests/MonoGame.Tools.Tests.csproj --blame-hang-timeout 5m -c Release
@@ -282,6 +306,10 @@ jobs:
             platform: linux
             shell: bash
             filter: --where="Category != Audio"
+          - os: ubuntu-24.04-arm
+            platform: linux
+            shell: bash
+            filter: --where="Category != Audio"
       fail-fast: false
     defaults:
       run:
@@ -303,7 +331,7 @@ jobs:
           global-json-file: "./global.json"
 
       - name: install wine64 on linux
-        if: runner.environment == 'github-hosted' && runner.os == 'Linux'
+        if: runner.environment == 'github-hosted' && runner.os == 'Linux' && runner.arch != 'ARM64'
         run: |
           sudo apt install p7zip-full curl
           sudo dpkg --add-architecture i386 
