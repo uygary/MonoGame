@@ -20,6 +20,9 @@ public sealed class DownloadArtifactsTask : AsyncFrostingTask<BuildContext>
         await DownloadArtifactAsync(context, $"nuget-macos.{context.Version}", context.NuGetsDirectory);
         await DownloadArtifactAsync(context, $"nuget-linux.{context.Version}", context.NuGetsDirectory);
 
+        // Runtime NuGets are packed in a separate job after all native builds complete
+        await DownloadArtifactAsync(context, $"nuget-runtime.{context.Version}", context.NuGetsDirectory);
+
         // Windows mgpipeline produces both x64 and arm64
         await DownloadArtifactAsync(context, $"mgpipeline-windows-x64.{context.Version}", "native/mgpipeline/windows/x64/Release/");
         await DownloadArtifactAsync(context, $"mgpipeline-windows-arm64.{context.Version}", "native/mgpipeline/windows/arm64/Release/");

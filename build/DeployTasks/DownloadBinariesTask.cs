@@ -34,8 +34,10 @@ public sealed class DownloadBinariesTask : AsyncFrostingTask<BuildContext>
         await DownloadArtifactAsync(context, $"mgpipeline-macos.{context.Version}", $"{binariesPackagingFolder}MonoGame.Framework/MonoGame.Framework.Content.Pipeline/");
 
         // Download native runtime binaries for all platform/arch combinations
-        await DownloadArtifactAsync(context, $"mgnative-windows-x64.{context.Version}", $"{binariesPackagingFolder}MonoGame.Framework/");
-        await DownloadArtifactAsync(context, $"mgnative-windows-arm64.{context.Version}", $"{binariesPackagingFolder}MonoGame.Framework/");
+        await DownloadArtifactAsync(context, $"mgnative-windows-dx-x64.{context.Version}", $"{binariesPackagingFolder}MonoGame.Framework/");
+        await DownloadArtifactAsync(context, $"mgnative-windows-dx-arm64.{context.Version}", $"{binariesPackagingFolder}MonoGame.Framework/");
+        await DownloadArtifactAsync(context, $"mgnative-windows-vk-x64.{context.Version}", $"{binariesPackagingFolder}MonoGame.Framework/");
+        await DownloadArtifactAsync(context, $"mgnative-windows-vk-arm64.{context.Version}", $"{binariesPackagingFolder}MonoGame.Framework/");
         await DownloadArtifactAsync(context, $"mgnative-linux-x64.{context.Version}", $"{binariesPackagingFolder}MonoGame.Framework/");
         await DownloadArtifactAsync(context, $"mgnative-linux-arm64.{context.Version}", $"{binariesPackagingFolder}MonoGame.Framework/");
         await DownloadArtifactAsync(context, $"mgnative-macos.{context.Version}", $"{binariesPackagingFolder}MonoGame.Framework/");
