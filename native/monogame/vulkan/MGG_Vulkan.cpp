@@ -788,6 +788,17 @@ MG_EXPORT mgint MGG_GraphicsDevice_GetVulkanQueueIndex(MGG_GraphicsDevice* devic
 	}
 }
 
+MG_EXPORT void* MGG_GraphicsDevice_GetVulkanQueue(MGG_GraphicsDevice* device) {
+	if (device == nullptr)
+	{
+		return nullptr;
+	}
+	else
+	{
+		return (void*)device->queue;
+	}
+}
+
 bool AreValidationLayersSupported()
 {
 	uint32_t layerCount;
@@ -5484,4 +5495,63 @@ mgbyte MGG_OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQue
 		pixelCount = 0;
 		return false; // Return false indicating the result is not available.
 	}
+}
+
+MG_EXPORT void* MGG_Texture_GetVulkanImage(MGG_Texture* texture) {
+	if (texture == nullptr) {
+		return nullptr;
+	}
+	return (void*)texture->image;
+}
+
+MG_EXPORT void MGG_Vulkan_CopyImage(MGG_GraphicsDevice* device, VkImage src,
+	VkImage dst, mgint width, mgint height) {
+	if (!device || !src || !dst) {
+		return;
+	}
+
+	VkCommandBuffer cmd = MGVK_BeginNewCommandBuffer(device);
+
+	// Transition src to TRANSFER_SRC_OPTIMAL
+	MGVK_CmdTransitionImageLayout(cmd, src,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_IMAGE_ASPECT_COLOR_BIT);
+
+	// Transition dst to TRANSFER_DST_OPTIMAL (from UNDEFINED)
+	MGVK_CmdTransitionImageLayout(cmd, dst, VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_IMAGE_ASPECT_COLOR_BIT);
+
+	VkImageCopy copyRegion = {};
+	copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	copyRegion.srcSubresource.mipLevel = 0;
+	copyRegion.srcSubresource.baseArrayLayer = 0;
+	copyRegion.srcSubresource.layerCount = 1;
+	copyRegion.srcOffset = { 0, 0, 0 };
+
+	copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	copyRegion.dstSubresource.mipLevel = 0;
+	copyRegion.dstSubresource.baseArrayLayer = 0;
+	copyRegion.dstSubresource.layerCount = 1;
+	copyRegion.dstOffset = { 0, 0, 0 };
+
+	copyRegion.extent.width = (uint32_t)width;
+	copyRegion.extent.height = (uint32_t)height;
+	copyRegion.extent.depth = 1;
+
+	vkCmdCopyImage(cmd, src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dst,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+	// Transition src back to COLOR_ATTACHMENT_OPTIMAL
+	MGVK_CmdTransitionImageLayout(cmd, src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_ASPECT_COLOR_BIT);
+
+	// Transition dst to COLOR_ATTACHMENT_OPTIMAL (ready for OpenXR)
+	MGVK_CmdTransitionImageLayout(cmd, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_ASPECT_COLOR_BIT);
+
+	MGVK_ExecuteAndFreeCommandBuffer(device, cmd);
 }
