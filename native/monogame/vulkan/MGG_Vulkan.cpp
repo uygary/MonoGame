@@ -734,51 +734,56 @@ MG_EXPORT void MGG_Vulkan_SetRequiredDeviceExtensions(const char* spaceSeparated
 	}
 }
 
-MG_EXPORT void* MGG_GraphicsDevice_GetVulkanInstance(MGG_GraphicsDevice* device) {
+MG_EXPORT void* MGG_GraphicsDevice_GetVulkanInstance(const MGG_GraphicsDevice* device)
+{
 	if (device == nullptr)
 	{
 		return nullptr;
 	}
 	else
 	{
-		return (void*)device->instance;
+		return device->instance;
 	}
 }
 
-MG_EXPORT void* MGG_GraphicsDevice_GetVulkanPhysicalDevice(MGG_GraphicsDevice* device) {
+MG_EXPORT void* MGG_GraphicsDevice_GetVulkanPhysicalDevice(const MGG_GraphicsDevice* device)
+{
 	if (device == nullptr)
 	{
 		return nullptr;
 	}
 	else
 	{
-		return (void*)device->physicalDevice;
+		return device->physicalDevice;
 	}
 }
 
-MG_EXPORT void* MGG_GraphicsDevice_GetVulkanDevice(MGG_GraphicsDevice* device) {
+MG_EXPORT void* MGG_GraphicsDevice_GetVulkanDevice(const MGG_GraphicsDevice* device)
+{
 	if (device == nullptr)
 	{
 		return nullptr;
 	}
 	else
 	{
-		return (void*)device->device;
+		return device->device;
 	}
 }
 
-MG_EXPORT mgint MGG_GraphicsDevice_GetVulkanQueueFamilyIndex(MGG_GraphicsDevice* device) {
+MG_EXPORT mgint MGG_GraphicsDevice_GetVulkanQueueFamilyIndex(const MGG_GraphicsDevice* device)
+{
 	if (device == nullptr)
 	{
 		return -1;
 	}
 	else
 	{
-		return (mgint)device->queue_family_index;
+		return static_cast<mgint>(device->queue_family_index);
 	}
 }
 
-MG_EXPORT mgint MGG_GraphicsDevice_GetVulkanQueueIndex(MGG_GraphicsDevice* device) {
+MG_EXPORT mgint MGG_GraphicsDevice_GetVulkanQueueIndex(const MGG_GraphicsDevice* device)
+{
 	if (device == nullptr)
 	{
 		return -1;
@@ -789,7 +794,8 @@ MG_EXPORT mgint MGG_GraphicsDevice_GetVulkanQueueIndex(MGG_GraphicsDevice* devic
 	}
 }
 
-MG_EXPORT void* MGG_GraphicsDevice_GetVulkanQueue(MGG_GraphicsDevice* device) {
+MG_EXPORT void* MGG_GraphicsDevice_GetVulkanQueue(const MGG_GraphicsDevice* device)
+{
 	if (device == nullptr)
 	{
 		return nullptr;
@@ -5520,13 +5526,16 @@ MG_EXPORT void MGG_Vulkan_CopyImage(MGG_GraphicsDevice* device, VkImage src,
 	VkCommandBuffer cmd = MGVK_BeginNewCommandBuffer(device);
 
 	// Transition src to TRANSFER_SRC_OPTIMAL
-	MGVK_CmdTransitionImageLayout(cmd, src,
+	MGVK_CmdTransitionImageLayout(cmd,
+		src,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// Transition dst to TRANSFER_DST_OPTIMAL (from UNDEFINED)
-	MGVK_CmdTransitionImageLayout(cmd, dst, VK_IMAGE_LAYOUT_UNDEFINED,
+	MGVK_CmdTransitionImageLayout(cmd,
+		dst,
+		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -5543,8 +5552,8 @@ MG_EXPORT void MGG_Vulkan_CopyImage(MGG_GraphicsDevice* device, VkImage src,
 	copyRegion.dstSubresource.layerCount = 1;
 	copyRegion.dstOffset = { 0, 0, 0 };
 
-	copyRegion.extent.width = (uint32_t)width;
-	copyRegion.extent.height = (uint32_t)height;
+	copyRegion.extent.width = static_cast<uint32_t>(width);
+	copyRegion.extent.height = static_cast<uint32_t>(height);
 	copyRegion.extent.depth = 1;
 
 	vkCmdCopyImage(cmd, src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dst,
