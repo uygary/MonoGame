@@ -14,6 +14,10 @@
 #include "SpriteEffect.vk.mgfxo.h"
 #include "mg_effect.h"
 
+#include <string>
+#include <vector>
+#include <sstream>
+
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #define VULKAN_HPP_NO_EXCEPTIONS
 #define VULKAN_HPP_TYPESAFE_CONVERSION 1
@@ -214,6 +218,7 @@ struct MGG_GraphicsDevice
 
 	VkDevice device = VK_NULL_HANDLE;
 	VkQueue queue = VK_NULL_HANDLE;
+	uint32_t queue_family_index = 0;
 	VkCommandPool cmdPool = VK_NULL_HANDLE;
 
 	VmaAllocator allocator = VK_NULL_HANDLE;
@@ -709,6 +714,80 @@ static VkImageAspectFlags DetermineAspectMask(VkFormat format)
 	return result;
 }
 
+static std::string g_requiredInstanceExtensions;
+static std::string g_requiredDeviceExtensions;
+
+MG_EXPORT void MGG_Vulkan_SetRequiredInstanceExtensions(const char* spaceSeparatedInstanceExtensions)
+{
+	if (spaceSeparatedInstanceExtensions)
+	{
+		g_requiredInstanceExtensions = spaceSeparatedInstanceExtensions;
+	}
+}
+
+MG_EXPORT void MGG_Vulkan_SetRequiredDeviceExtensions(const char* spaceSeparatedDeviceExtensions)
+{
+	if (spaceSeparatedDeviceExtensions)
+	{
+		g_requiredDeviceExtensions = spaceSeparatedDeviceExtensions;
+	}
+}
+
+MG_EXPORT void* MGG_GraphicsDevice_GetVulkanInstance(MGG_GraphicsDevice* device) {
+	if (device == nullptr)
+	{
+		return nullptr;
+	}
+	else
+	{
+		return (void*)device->instance;
+	}
+}
+
+MG_EXPORT void* MGG_GraphicsDevice_GetVulkanPhysicalDevice(MGG_GraphicsDevice* device) {
+	if (device == nullptr)
+	{
+		return nullptr;
+	}
+	else
+	{
+		return (void*)device->physicalDevice;
+	}
+}
+
+MG_EXPORT void* MGG_GraphicsDevice_GetVulkanDevice(MGG_GraphicsDevice* device) {
+	if (device == nullptr)
+	{
+		return nullptr;
+	}
+	else
+	{
+		return (void*)device->device;
+	}
+}
+
+MG_EXPORT mgint MGG_GraphicsDevice_GetVulkanQueueFamilyIndex(MGG_GraphicsDevice* device) {
+	if (device == nullptr)
+	{
+		return -1;
+	}
+	else
+	{
+		return (mgint)device->queue_family_index;
+	}
+}
+
+MG_EXPORT mgint MGG_GraphicsDevice_GetVulkanQueueIndex(MGG_GraphicsDevice* device) {
+	if (device == nullptr)
+	{
+		return -1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 bool AreValidationLayersSupported()
 {
 	uint32_t layerCount;
@@ -780,6 +859,34 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 		SDL_Vulkan_GetInstanceExtensions(nullptr, &count, instanceExtensions.data());
 	}
 #endif
+
+	std::vector<std::string> persistentInstanceExtensions;
+	{
+		std::stringstream ss(g_requiredInstanceExtensions);
+		std::string ext;
+		while (ss >> ext)
+		{
+			persistentInstanceExtensions.push_back(ext);
+		}
+	}
+
+	for (const auto& ext : persistentInstanceExtensions)
+	{
+		bool found = false;
+		for (auto ie : instanceExtensions)
+		{
+			if (strcmp(ie, ext.c_str()) == 0)
+			{
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+		{
+			instanceExtensions.push_back(ext.c_str());
+		}
+	}
+
 
 	// Check instance-level extensions support or if they are core in this instance
 	uint32_t version;
@@ -1212,6 +1319,7 @@ MGG_GraphicsDevice* MGG_GraphicsDevice_Create(MGG_GraphicsSystem* system, MGG_Gr
 			}
 		}
 	}
+	device->queue_family_index = queueFamilyIndex;
 
 	VkDeviceQueueCreateInfo queueCreateInfo {};
 	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -1271,6 +1379,33 @@ MGG_GraphicsDevice* MGG_GraphicsDevice_Create(MGG_GraphicsSystem* system, MGG_Gr
 
 	std::vector<const char*> extensions;
 	extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+	std::vector<std::string> persistentDeviceExtensions;
+	{
+		std::stringstream ss(g_requiredDeviceExtensions);
+		std::string ext;
+		while (ss >> ext)
+		{
+			persistentDeviceExtensions.push_back(ext);
+		}
+	}
+
+	for (const auto& ext : persistentDeviceExtensions)
+	{
+		bool found = false;
+		for (auto ie : extensions)
+		{
+			if (strcmp(ie, ext.c_str()) == 0)
+			{
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+		{
+			extensions.push_back(ext.c_str());
+		}
+	}
 
 	VkPhysicalDeviceFeatures enabledFeatures = {};
 	if (device->deviceFeatures.sampleRateShading)
