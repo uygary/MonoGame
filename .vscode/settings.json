@@ -6,5 +6,6 @@
     "github.copilot.enable": {
         "*": false
     },
-    "chat.agent.enabled": false
+    "chat.agent.enabled": false,
+    "dotnet.defaultSolution": "MonoGame.Framework.Native.sln"
 }
