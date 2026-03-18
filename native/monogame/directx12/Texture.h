@@ -15,6 +15,11 @@ public:
     Texture(SurfaceType type, TextureDimension dimension, int width, int height, int depth, int mipLevels, MGSurfaceFormat format);
     Texture(int width, int height, MGDepthFormat format);
     Texture(const Texture& other);
+
+    // Wrap an externally owned resource (e.g. OpenXR swap-chain image).
+    // Creates RTV + SRV descriptors but doesn't allocate memory.
+    Texture(DeviceResources* device, ID3D12Resource* externalResource, MGSurfaceFormat format);
+
 #ifndef _GAMING_XBOX
     Texture(DeviceResources* device, IDXGISwapChain3* swapchain, int bufferId);
 #endif

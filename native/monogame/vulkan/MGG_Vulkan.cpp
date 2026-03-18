@@ -14,6 +14,10 @@
 #include "SpriteEffect.vk.mgfxo.h"
 #include "mg_effect.h"
 
+#include <string>
+#include <vector>
+#include <sstream>
+
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #define VULKAN_HPP_NO_EXCEPTIONS
 #define VULKAN_HPP_TYPESAFE_CONVERSION 1
@@ -251,6 +255,7 @@ struct MGG_GraphicsDevice
 	std::recursive_mutex queueMutex;
 	uint32_t graphicsQueueFamily = 0;
 	VkQueue queue = VK_NULL_HANDLE;
+	uint32_t queue_family_index = 0;
 	VkCommandPool cmdPool = VK_NULL_HANDLE;
 
 	std::recursive_mutex transferMutex;
@@ -749,6 +754,37 @@ static VkImageAspectFlags DetermineAspectMask(VkFormat format)
 	return result;
 }
 
+static std::string g_requiredInstanceExtensions;
+static std::string g_requiredDeviceExtensions;
+
+MG_EXPORT void MGG_GraphicsDevice_SetRequiredExtensions(const char* instanceExtensions, const char* deviceExtensions)
+{
+	if (instanceExtensions)
+	{
+		g_requiredInstanceExtensions = instanceExtensions;
+	}
+	if (deviceExtensions)
+	{
+		g_requiredDeviceExtensions = deviceExtensions;
+	}
+}
+
+MG_EXPORT void MGG_GraphicsDevice_GetNativeHandles(const MGG_GraphicsDevice* device, MGP_NativeGraphicsHandles* handles)
+{
+	if (!device || !handles)
+	{
+		return;
+	}
+
+	handles->Backend          = MGGraphicsBackend::Vulkan;
+	handles->Instance         = device->instance;
+	handles->PhysicalDevice   = device->physicalDevice;
+	handles->LogicalDevice    = device->device;
+	handles->Queue            = static_cast<void*>(device->queue);
+	handles->QueueFamilyIndex = static_cast<mgint>(device->queue_family_index);
+	handles->QueueIndex       = 0;
+}
+
 bool AreValidationLayersSupported()
 {
 	uint32_t layerCount;
@@ -865,6 +901,34 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 		}
 	}
 #endif
+
+	std::vector<std::string> persistentInstanceExtensions;
+	{
+		std::stringstream ss(g_requiredInstanceExtensions);
+		std::string extension;
+		while (ss >> extension)
+		{
+			persistentInstanceExtensions.push_back(extension);
+		}
+	}
+
+	for (const auto& extension : persistentInstanceExtensions)
+	{
+		bool found = false;
+		for (auto ie : instanceExtensions)
+		{
+			if (strcmp(ie, extension.c_str()) == 0)
+			{
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+		{
+			instanceExtensions.push_back(extension.c_str());
+		}
+	}
+
 
 	// Check instance-level extensions support or if they are core in this instance
 	uint32_t version;
@@ -1341,6 +1405,7 @@ MGG_GraphicsDevice* MGG_GraphicsDevice_Create(MGG_GraphicsSystem* system, MGG_Gr
 
 		delete [] queueFamilyProps;
 	}
+	device->queue_family_index = queueFamilyIndex;
 
 	VkDeviceQueueCreateInfo queueCreateInfo {};
 	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -1400,6 +1465,33 @@ MGG_GraphicsDevice* MGG_GraphicsDevice_Create(MGG_GraphicsSystem* system, MGG_Gr
 
 	std::vector<const char*> extensions;
 	extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+	std::vector<std::string> persistentDeviceExtensions;
+	{
+		std::stringstream ss(g_requiredDeviceExtensions);
+		std::string extension;
+		while (ss >> extension)
+		{
+			persistentDeviceExtensions.push_back(extension);
+		}
+	}
+
+	for (const auto& extension : persistentDeviceExtensions)
+	{
+		bool found = false;
+		for (auto de : extensions)
+		{
+			if (strcmp(de, extension.c_str()) == 0)
+			{
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+		{
+			extensions.push_back(extension.c_str());
+		}
+	}
 
 	VkPhysicalDeviceFeatures enabledFeatures = {};
 	if (device->deviceFeatures.sampleRateShading)
@@ -1591,6 +1683,15 @@ static void MGVK_CleanupSwapChain(MGG_GraphicsDevice* device)
 					vkDestroyImageView(device->device, view.value(), nullptr);
 				}
 			}
+
+			// I suspect pipelineState.targets is pointing to this cache entry.
+			if (device->pipelineState.targets == targetSetCache)
+			{
+				// If it is, nullify it to avoid dangling pointers.
+				// (This is what MGVK_DestroyTargetSets appers to be already doing.)
+				device->pipelineState.targets = nullptr;
+			}
+
 			vkDestroyRenderPass(device->device, targetSetCache->renderPass, nullptr);
 			vkDestroyFramebuffer(device->device, targetSetCache->framebuffer, nullptr);
 			delete targetSetCache;
@@ -2036,6 +2137,8 @@ void MGVK_RecreateSwapChain(
 		texture->image = swapchainImages[i];
 		texture->isSwapchain = texture->isTarget = true;
 		texture->multiSampleCount = multiSampleCount;
+		texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;	// TODO: Is UNDEFINED good enough here?
+		texture->optimal_layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		VK_SET_OBJECT_NAME(device->device, texture->image, VK_OBJECT_TYPE_IMAGE, "MGG_Texture.image (Swapchain %d)", i);
 
 		if (multiSampleCount > 1)
@@ -2356,6 +2459,10 @@ static void MGVK_DestroyTargetSets(MGG_GraphicsDevice* device, std::function<boo
                     vkDestroyImageView(device->device, view.value(), nullptr);
                 }
             }
+			if (device->pipelineState.targets == itr->second)
+			{
+				device->pipelineState.targets = nullptr;
+			}
 			vkDestroyFramebuffer(device->device, itr->second->framebuffer, nullptr);
 			vkDestroyRenderPass(device->device, itr->second->renderPass, nullptr);
 			delete itr->second;
@@ -2446,8 +2553,15 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter 
 			if (texture->view != VK_NULL_HANDLE)
 				vkDestroyImageView(device->device, texture->view, nullptr);
 
-			vmaDestroyImage(device->allocator, texture->image, texture->allocation);
+			// Only destroy the image and its memory if we own it.
+			// Externally-owned textures (e.g. XR swap-chain wrappers) have allocation == VK_NULL_HANDLE.
+			if (texture->allocation != VK_NULL_HANDLE)
+			{
+				vmaDestroyImage(device->allocator, texture->image, texture->allocation);
+			}
+			// TODO: Is this OK for external textures?
 			mg_remove(device->all_textures, texture);
+
 			delete texture;
 		}
 
@@ -3202,7 +3316,9 @@ static void MGVK_UpdateRenderPass(MGG_GraphicsDevice* device, FrameCounter curre
                     desc.loadOp = firstUse ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : VK_ATTACHMENT_LOAD_OP_LOAD;
                     desc.stencilLoadOp = firstUse ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : VK_ATTACHMENT_LOAD_OP_LOAD;
                     desc.initialLayout = firstUse ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-                    desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+                    //desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+                    // TODO: Isn't this better?
+                    desc.finalLayout = target->optimal_layout;
                 }
                 else
                 {
@@ -5251,8 +5367,169 @@ void MGG_Texture_Destroy(MGG_GraphicsDevice* device, MGG_Texture* texture)
 	if (texture->depthTexture)
 		MGG_Texture_Destroy(device, texture->depthTexture);
 
+	// Is this is an externally owned texture, like an OpenXR swap-chain wrapped in a RenderTarget2D.
+	if (texture->isSwapchain && texture->allocation == VK_NULL_HANDLE)
+	{
+		// We should tear-down its views before the caller (i.e. OpenXR) destroys the underlying VkImages.
+		// Otherwise, we'll have access violation during deferred cleanup.
+		
+		// Wait for the device to be idle to safely destroy its views.
+		// This prevents crashes in race conditions.
+		vkDeviceWaitIdle(device->device);
+
+		// Not sure if this is necessary,
+		// but since MGG_RenderTarget_Create sets this true, better check it.
+		if (texture->isTarget)
+		{
+			MGVK_DestroyPipelines(device, [texture](const MGVK_PipelineState& s)
+				{
+					for (int i = 0; i < s.targets->set.numTargets; i++)
+					{
+						if (s.targets->set.targets[i] == texture)
+						{
+							return true;
+						}
+					}
+					return false;
+				});
+
+			MGVK_DestroyTargetSets(device, [texture](const MGVK_TargetSetCache* s)
+				{
+					for (int i = 0; i < s->set.numTargets; i++)
+					{
+						if (s->set.targets[i] == texture)
+						{
+							return true;
+						}
+					}
+					return false;
+				});
+		}
+
+		if (texture->target_view != VK_NULL_HANDLE)
+		{
+			// Destroy the render-target view.
+			vkDestroyImageView(device->device, texture->target_view, nullptr);
+		}
+		if (texture->view != VK_NULL_HANDLE)
+		{
+			// Destroy the shader sampling view.
+			vkDestroyImageView(device->device, texture->view, nullptr);
+		}
+
+		delete texture;
+		return;
+	}
+
 	// Queue the texture for later destruction.
 	device->destroyTextures.push(texture);
+}
+
+MGG_Texture* MGG_RenderTarget_WrapNativeImage(
+	MGG_GraphicsDevice* device,
+	void* nativeImage,
+	MGSurfaceFormat format,
+	mgint width,
+	mgint height,
+	MGDepthFormat depthFormat,
+	mgint multiSampleCount)
+{
+	assert(device != nullptr);
+	assert(nativeImage != nullptr);
+	assert(width > 0);
+	assert(height > 0);
+
+	auto texture = new MGG_Texture();
+	texture->isTarget = true;
+	texture->isSwapchain = true; // Marks as externally owned. This prevents image/memory destruction.
+	texture->type = MGTextureType::_2D;
+	texture->format = format;
+	texture->id = ++device->currentTextureId;
+	texture->multiSampleCount = multiSampleCount;
+
+	// tODO: Is it OK to just set this instead of passing it in:
+	// I think this is good enough in the case of OpenXR,
+	// but let's think about other potential uses, and its effects.
+	texture->usage = MGRenderTargetUsage::DiscardContents;
+
+	// Set the externally-owned VkImage. We don't allocate memory.
+	texture->image = static_cast<VkImage>(nativeImage);
+	texture->allocation = VK_NULL_HANDLE; // We don't own the image. Prevents us from trying to free image memory.
+
+	// Populate VkImageCreateInfo for view creation.
+	VkImageCreateInfo& create_info = texture->info;
+	create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	create_info.imageType = ToVkImageType(texture->type);
+	create_info.flags = ToVkImageCreateFlags(texture->type);
+	create_info.format = ToVkFormat(format);
+	create_info.extent.width = width;
+	create_info.extent.height = height;
+	create_info.extent.depth = 1;
+	create_info.mipLevels = 1;
+	create_info.arrayLayers = 1;
+	create_info.samples = ToVkSampleCount(multiSampleCount);
+	create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+
+	create_info.usage =
+		VK_IMAGE_USAGE_SAMPLED_BIT
+		| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+		| VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+		| VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+	create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	// OpenXR swap-chain images are in COLOR_ATTACHMENT_OPTIMAL and not VK_IMAGE_LAYOUT_UNDEFINED when we retrieve them here:
+	// 12.20. XR_KHR_vulkan_enable:
+	// When an application acquires a swapchain image by calling xrAcquireSwapchainImage in a session created using XrGraphicsBindingVulkanKHR, the OpenXR runtime must guarantee that:
+	// The image has a memory layout compatible with VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL for color images, or VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL for depth images.
+	texture->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	texture->optimal_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	// Create image view for shader sampling.
+	// (At least I think that's what this is, based on its usage in MGVK_UpdateDescriptors.)
+	texture->view = CreateImageView(device, texture, 1);
+
+	VK_SET_OBJECT_NAME(device->device,
+		texture->view,
+		VK_OBJECT_TYPE_IMAGE_VIEW,
+		"MGG_Texture.view (XR RenderTarget id: %llu)",
+		texture->id);
+
+	// Create image view for render-target.
+	// (At least I think that's what this is, because MGVK_UpdateRenderPass uses this.)
+	texture->target_view = CreateImageView(device, texture, 1);
+
+	VK_SET_OBJECT_NAME(device->device,
+		texture->target_view,
+		VK_OBJECT_TYPE_IMAGE_VIEW,
+		"MGG_Texture.target_view (XR RenderTarget id: %llu)",
+		texture->id);
+
+	// Create depth buffer if requested. (This, we DO own!)
+	if (depthFormat != MGDepthFormat::None)
+	{
+		texture->depthFormat = depthFormat;
+		texture->depthTexture = CreateDepthTexture(device, ToVkFormat(depthFormat), width, height, multiSampleCount);
+
+		VK_SET_OBJECT_NAME(device->device,
+			texture->depthTexture->image,
+			VK_OBJECT_TYPE_IMAGE,
+			"MGG_Texture.depthTexture.image (for XR RT id: %llu)",
+			texture->id);
+
+		texture->depthTexture->target_view = CreateImageView(device,
+			texture->depthTexture,
+			1);
+
+		VK_SET_OBJECT_NAME(device->device,
+			texture->depthTexture->target_view,
+			VK_OBJECT_TYPE_IMAGE_VIEW,
+			"MGG_Texture.depthTexture.target_view (for XR RT id: %llu)",
+			texture->id);
+	}
+
+	return texture;
 }
 
 static void MGVK_ClampAndValidateTextureRegion(

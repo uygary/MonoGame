@@ -82,3 +82,18 @@ MG_EXPORT void MGG_OcclusionQuery_Destroy(MGG_GraphicsDevice* device, MGG_Occlus
 MG_EXPORT void MGG_OcclusionQuery_Begin(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query);
 MG_EXPORT void MGG_OcclusionQuery_End(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query);
 MG_EXPORT mgbyte MGG_OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query, mgint& pixelCount);
+
+#pragma region OpenXR / Native Interop
+
+// Set required Vulkan extensions before device creation. No-op on DX12.
+MG_EXPORT void  MGG_GraphicsDevice_SetRequiredExtensions(const char* instanceExtensions, const char* deviceExtensions);
+
+// Retrieve native graphics API handles for XR binding.
+MG_EXPORT void  MGG_GraphicsDevice_GetNativeHandles(const MGG_GraphicsDevice* device, MGP_NativeGraphicsHandles* handles);
+
+// Wrap an externally-owned native image (VkImage or ID3D12Resource*) as a render target.
+// The returned MGG_Texture doesn't own the image memory. OpenXR (or whatever external component is using this) is responsible for its lifetime.
+// Creates image views and an optional depth buffer, which is owned by the returned texture.
+MG_EXPORT MGG_Texture* MGG_RenderTarget_WrapNativeImage(MGG_GraphicsDevice* device, void* nativeImage, MGSurfaceFormat format, mgint width, mgint height, MGDepthFormat depthFormat, mgint multiSampleCount);
+
+#pragma endregion OpenXR / Native Interop
