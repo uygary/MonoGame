@@ -5518,7 +5518,7 @@ MG_EXPORT void* MGG_Texture_GetVulkanImage(const MGG_Texture* texture)
 	return (void*)texture->image;
 }
 
-MG_EXPORT void MGG_Vulkan_CopyImage(MGG_GraphicsDevice* device,
+MG_EXPORT void MGG_GraphicsDevice_CopyImage(MGG_GraphicsDevice* device,
 	void* source,
 	void* destination,
 	mgint sourceInitialLayout,
