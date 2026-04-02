@@ -5536,6 +5536,39 @@ MG_EXPORT void MGG_GraphicsDevice_CopyImage(MGG_GraphicsDevice* device,
 		return;
 	}
 
+	bool restart_frame = false;
+	const FrameCounter currentFrame = device->frame;
+	const FrameCounter frameIndex = currentFrame % device->swapchainCount;
+	MGVK_FrameState& frame = device->frames[frameIndex];
+	MGVK_CmdBuffer& mainCmd = frame.commandBuffer;
+
+	if (frame.is_recording)
+	{
+		// Flush the command buffer of the active frame to ensure all draw calls
+		// to the source texture are completed before we perform the copy.
+		if (device->inRenderPass)
+		{
+			MGVK_EndRenderPass(device, mainCmd.buffer);
+		}
+
+		VkResult res = vkEndCommandBuffer(mainCmd.buffer);
+		VK_CHECK_RESULT(res);
+
+		VkFence renderFence;
+		VkFenceCreateInfo fenceCreateInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+		vkCreateFence(device->device, &fenceCreateInfo, nullptr, &renderFence);
+
+		VkSubmitInfo submitInfo = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &mainCmd.buffer;
+
+		vkQueueSubmit(device->queue, 1, &submitInfo, renderFence);
+		vkWaitForFences(device->device, 1, &renderFence, VK_TRUE, UINT64_MAX);
+		vkDestroyFence(device->device, renderFence, nullptr);
+
+		restart_frame = true;
+	}
+
 	VkImage src = static_cast<VkImage>(source);
 	VkImage dst = static_cast<VkImage>(destination);
 	VkImageLayout srcLayout = static_cast<VkImageLayout>(sourceInitialLayout);
@@ -5596,4 +5629,9 @@ MG_EXPORT void MGG_GraphicsDevice_CopyImage(MGG_GraphicsDevice* device,
 		VK_IMAGE_ASPECT_COLOR_BIT);
 
 	MGVK_ExecuteAndFreeCommandBuffer(device, cmd);
+
+	if (restart_frame)
+	{
+		MGVK_BeginFrame(mainCmd);
+	}
 }
