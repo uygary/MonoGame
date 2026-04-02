@@ -82,5 +82,13 @@ MG_EXPORT void MGG_OcclusionQuery_Destroy(MGG_GraphicsDevice* device, MGG_Occlus
 MG_EXPORT void MGG_OcclusionQuery_Begin(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query);
 MG_EXPORT void MGG_OcclusionQuery_End(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query);
 MG_EXPORT mgbyte MGG_OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query, mgint& pixelCount);
+MG_EXPORT void MGG_Vulkan_SetRequiredInstanceExtensions(const char* spaceSeparatedInstanceExtensions);
+MG_EXPORT void MGG_Vulkan_SetRequiredDeviceExtensions(const char* spaceSeparatedDeviceExtensions);
+MG_EXPORT void* MGG_GraphicsDevice_GetVulkanInstance(const MGG_GraphicsDevice* device);
+MG_EXPORT void* MGG_GraphicsDevice_GetVulkanPhysicalDevice(const MGG_GraphicsDevice* device);
+MG_EXPORT void* MGG_GraphicsDevice_GetVulkanDevice(const MGG_GraphicsDevice* device);
+MG_EXPORT mgint MGG_GraphicsDevice_GetVulkanQueueFamilyIndex(const MGG_GraphicsDevice* device);
+MG_EXPORT mgint MGG_GraphicsDevice_GetVulkanQueueIndex(const MGG_GraphicsDevice* device);
+MG_EXPORT void* MGG_GraphicsDevice_GetVulkanQueue(const MGG_GraphicsDevice* device);
 MG_EXPORT void* MGG_Texture_GetVulkanImage(const MGG_Texture* texture);
-MG_EXPORT void MGG_Vulkan_CopyImage(MGG_GraphicsDevice* device, void* source, void* destination, mgint sourceInitialLayout, mgint width, mgint height);
+MG_EXPORT void MGG_GraphicsDevice_CopyImage(MGG_GraphicsDevice* device, void* source, void* destination, mgint sourceInitialLayout, mgint width, mgint height);
