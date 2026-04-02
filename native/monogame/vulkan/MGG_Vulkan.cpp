@@ -5517,25 +5517,35 @@ mgbyte MGG_OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQue
 	}
 }
 
-MG_EXPORT void* MGG_Texture_GetVulkanImage(MGG_Texture* texture) {
+MG_EXPORT void* MGG_Texture_GetVulkanImage(const MGG_Texture* texture)
+{
 	if (texture == nullptr) {
 		return nullptr;
 	}
 	return (void*)texture->image;
 }
 
-MG_EXPORT void MGG_Vulkan_CopyImage(MGG_GraphicsDevice* device, VkImage src,
-	VkImage dst, mgint width, mgint height) {
-	if (!device || !src || !dst) {
+MG_EXPORT void MGG_Vulkan_CopyImage(MGG_GraphicsDevice* device,
+	void* source,
+	void* destination,
+	mgint sourceInitialLayout,
+	mgint width,
+	mgint height)
+{
+	if (!device || !source || !destination) {
 		return;
 	}
+
+	VkImage src = static_cast<VkImage>(source);
+	VkImage dst = static_cast<VkImage>(destination);
+	VkImageLayout srcLayout = static_cast<VkImageLayout>(sourceInitialLayout);
 
 	VkCommandBuffer cmd = MGVK_BeginNewCommandBuffer(device);
 
 	// Transition src to TRANSFER_SRC_OPTIMAL
 	MGVK_CmdTransitionImageLayout(cmd,
 		src,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		srcLayout,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -5563,16 +5573,25 @@ MG_EXPORT void MGG_Vulkan_CopyImage(MGG_GraphicsDevice* device, VkImage src,
 	copyRegion.extent.height = static_cast<uint32_t>(height);
 	copyRegion.extent.depth = 1;
 
-	vkCmdCopyImage(cmd, src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dst,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+	vkCmdCopyImage(cmd,
+		src,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		dst,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1,
+		&copyRegion);
 
-	// Transition src back to COLOR_ATTACHMENT_OPTIMAL
-	MGVK_CmdTransitionImageLayout(cmd, src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+	// Transition src back to its original layout
+	MGVK_CmdTransitionImageLayout(cmd,
+		src,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		srcLayout,
 		VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// Transition dst to COLOR_ATTACHMENT_OPTIMAL (ready for OpenXR)
-	MGVK_CmdTransitionImageLayout(cmd, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+	MGVK_CmdTransitionImageLayout(cmd,
+		dst,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		VK_IMAGE_ASPECT_COLOR_BIT);
 
