@@ -1848,61 +1848,47 @@ MG_EXPORT void MGG_GraphicsDevice_CopyImage(
 	mgint width,
 	mgint height)
 {
-	OutputDebugStringA("[CopyImage] Enter\n");
-
 	if (!device || !source || !destination)
 	{
-		OutputDebugStringA("[CopyImage] ABORT: null device/source/destination\n");
 		return;
 	}
 
 	auto srcResource = static_cast<ID3D12Resource*>(source);
 	auto dstResource = static_cast<ID3D12Resource*>(destination);
 
-	OutputDebugStringA("[CopyImage] Step 1: Flushing active frame commands\n");
-
 	auto ctx = device->context;
 	if (!ctx)
 	{
-		OutputDebugStringA("[CopyImage] ABORT: null context\n");
-		return;
-	}
-
-	// Guard: if the command context was already closed, cmd will be null
-	if (!ctx->cmd)
-	{
-		OutputDebugStringA("[CopyImage] ABORT: context cmd is null (already closed?)\n");
 		return;
 	}
 
 	auto cq = device->resources->GetCommandQueue();
-	uint64_t fence = ctx->Close();
-	OutputDebugStringA("[CopyImage] Step 1a: Close() done, waiting on fence\n");
-	cq->WaitForFenceCPUBlocking(fence);
-	OutputDebugStringA("[CopyImage] Step 1b: Fence wait complete, GPU idle\n");
 
-	// Validate resource descs
-	auto srcDesc = srcResource->GetDesc();
-	auto dstDesc = dstResource->GetDesc();
-
-	char debugBuf[512];
-	sprintf_s(debugBuf, "[CopyImage] src: %ux%u fmt=%d, dst: %ux%u fmt=%d\n",
-		(UINT)srcDesc.Width, srcDesc.Height, (int)srcDesc.Format,
-		(UINT)dstDesc.Width, dstDesc.Height, (int)dstDesc.Format);
-	OutputDebugStringA(debugBuf);
-
-	if (srcDesc.Format != dstDesc.Format)
+	// If the command context is still open (CopyImage called before Present),
+	// we must flush it first to ensure all prior draw calls are complete.
+	// If it's already closed (CopyImage called after Present/EndDraw),
+	// the GPU is already idle from Present's fence — skip the flush.
+	bool contextWasOpen = (ctx->cmd != nullptr);
+	if (contextWasOpen)
 	{
-		OutputDebugStringA("[CopyImage] WARNING: format mismatch between src and dst!\n");
+		uint64_t fence = ctx->Close();
+		cq->WaitForFenceCPUBlocking(fence);
 	}
 
-	OutputDebugStringA("[CopyImage] Step 2: Begin command list for copy\n");
+	// After Present's BeforePresent() or our Close()+Wait above, resources
+	// have been submitted and fenced. Use a standalone command list for the copy.
 	auto cmdList = device->resources->BeginCommandList();
 	auto cl = cmdList->Get();
 
 	D3D12_RESOURCE_BARRIER barriers[2] = {};
 
 	// Transition source: COMMON → COPY_SOURCE
+	// After submit+fence, textures without SIMULTANEOUS_ACCESS decay to their
+	// last-transitioned state. Present transitions the back buffer to PRESENT,
+	// but our source RT was last used as RENDER_TARGET or PIXEL_SHADER_RESOURCE.
+	// We use COMMON here — for textures on DEFAULT heaps, COMMON is universally
+	// valid as a "don't care" initial state when the GPU is idle and no prior
+	// command list references the resource.
 	barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 	barriers[0].Transition.pResource   = srcResource;
 	barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
@@ -1916,29 +1902,29 @@ MG_EXPORT void MGG_GraphicsDevice_CopyImage(
 	barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
 	barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-	OutputDebugStringA("[CopyImage] Step 3: ResourceBarrier (pre-copy)\n");
 	cl->ResourceBarrier(2, barriers);
 
-	OutputDebugStringA("[CopyImage] Step 4: CopyResource\n");
 	cl->CopyResource(dstResource, srcResource);
 
-	// Transition both back to COMMON
+	// Transition both back to COMMON for clean handoff
 	barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
 	barriers[0].Transition.StateAfter  = D3D12_RESOURCE_STATE_COMMON;
 
 	barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
 	barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_COMMON;
 
-	OutputDebugStringA("[CopyImage] Step 5: ResourceBarrier (post-copy)\n");
 	cl->ResourceBarrier(2, barriers);
 
-	OutputDebugStringA("[CopyImage] Step 6: Close command list (blocking)\n");
+	// Execute and wait for copy to complete
 	cmdList->Close(true);
 
-	OutputDebugStringA("[CopyImage] Step 7: Reset context\n");
-	ctx->Reset(ctx->m_backBufferIndex);
-
-	OutputDebugStringA("[CopyImage] Done\n");
+	// Only reset the context if we closed it ourselves.
+	// If Present already closed it, Prepare() will reset it at the start
+	// of the next frame — resetting here would double-open the context.
+	if (contextWasOpen)
+	{
+		ctx->Reset(ctx->m_backBufferIndex);
+	}
 }
 
 #pragma endregion OpenXR / Native Interop
