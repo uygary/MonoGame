@@ -1805,3 +1805,120 @@ mgbyte MGG_OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQue
 	pixelCount = value;
 	return true;
 }
+
+#pragma region OpenXR / Native Interop
+
+MG_EXPORT void MGG_GraphicsDevice_SetRequiredExtensions(const char* instanceExtensions, const char* deviceExtensions)
+{
+	// No-op: DX12 does not use extensions.
+	// OpenXR's XR_KHR_D3D12_enable is an OpenXR instance extension,
+	// enabled on the OpenXR end, not on the MonoGame end.
+}
+
+MG_EXPORT void MGG_GraphicsDevice_GetNativeHandles(const MGG_GraphicsDevice* device, MGP_NativeGraphicsHandles* handles)
+{
+	if (!device || !handles)
+	{
+		return;
+	}
+
+	handles->Backend          = MGGraphicsBackend::DirectX12;
+	handles->Instance         = nullptr;
+	handles->PhysicalDevice   = nullptr;
+	handles->Device           = device->resources->GetD3DDevice();
+	handles->Queue            = device->resources->GetCommandQueue()->Get();
+	handles->QueueFamilyIndex = 0;
+	handles->QueueIndex       = 0;
+}
+
+MG_EXPORT void* MGG_Texture_GetNativeImage(const MGG_Texture* texture)
+{
+	if (!texture || !texture->texture)
+	{
+		return nullptr;
+	}
+	return texture->texture->Get();
+}
+
+MG_EXPORT void MGG_GraphicsDevice_CopyImage(
+	MGG_GraphicsDevice* device,
+	void* source,
+	void* destination,
+	mgint sourceLayout,
+	mgint width,
+	mgint height)
+{
+	if (!device || !source || !destination)
+	{
+		return;
+	}
+
+	auto srcResource = static_cast<ID3D12Resource*>(source);
+	auto dstResource = static_cast<ID3D12Resource*>(destination);
+
+	// Map MGNativeImageLayout enum to D3D12_RESOURCE_STATES
+	D3D12_RESOURCE_STATES srcState;
+	switch (static_cast<MGNativeImageLayout>(sourceLayout))
+	{
+		case MGNativeImageLayout::ShaderReadOnly:
+		{
+			srcState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+			break;
+		}
+		case MGNativeImageLayout::RenderTarget:
+		default:
+		{
+			srcState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+			break;
+		}
+	}
+
+	// 1. Flush the active frame's commands to ensure draw calls are complete.
+	auto ctx = device->context;
+	auto cq = device->resources->GetCommandQueue();
+	uint64_t fence = ctx->Close();
+	cq->WaitForFenceCPUBlocking(fence);
+
+	// 2. Record the copy on a separate command list.
+	auto cmdList = device->resources->BeginCommandList();
+	auto cl = cmdList->Get();
+
+	D3D12_RESOURCE_BARRIER barriers[2] = {};
+
+	// Transition source: srcState → COPY_SOURCE
+	barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barriers[0].Transition.pResource   = srcResource;
+	barriers[0].Transition.StateBefore = srcState;
+	barriers[0].Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_SOURCE;
+	barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+	// Transition destination: COMMON → COPY_DEST (OpenXR images start in COMMON)
+	barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barriers[1].Transition.pResource   = dstResource;
+	barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
+	barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
+	barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+	cl->ResourceBarrier(2, barriers);
+
+	// Copy resource
+	cl->CopyResource(dstResource, srcResource);
+
+	// Transition source back to original state
+	barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+	barriers[0].Transition.StateAfter  = srcState;
+
+	// Transition destination: COPY_DEST → RENDER_TARGET (ready for OpenXR compositor)
+	barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+	barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
+
+	cl->ResourceBarrier(2, barriers);
+
+	// Execute and wait for copy to complete
+	cmdList->Close(true);
+
+	// 3. Restart the command context for the remainder of the frame.
+	ctx->Reset(ctx->m_backBufferIndex);
+}
+
+#pragma endregion OpenXR / Native Interop

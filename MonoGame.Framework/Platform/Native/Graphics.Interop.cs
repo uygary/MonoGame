@@ -446,4 +446,45 @@ internal static unsafe partial class MGG
     public static extern byte OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query, out int pixelCount);
 
     #endregion
+
+    #region OpenXR / Native Interop
+
+    // TODO: Can we just move the layout attribute to the actual struct and use it?:
+    // Would int/struct casting be safe across the interop boundary?
+    // Want to avoid unnecessary copy if possible.
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct MGP_NativeGraphicsHandles
+    {
+        public int Backend;
+        public nint Instance;
+        public nint PhysicalDevice;
+        public nint Device;
+        public nint Queue;
+        public int QueueFamilyIndex;
+        public int QueueIndex;
+    }
+
+    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_GraphicsDevice_SetRequiredExtensions", ExactSpelling = true)]
+    public static extern void GraphicsDevice_SetRequiredExtensions(
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string? instanceExts,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string? deviceExts);
+
+    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_GraphicsDevice_GetNativeHandles", ExactSpelling = true)]
+    public static extern void GraphicsDevice_GetNativeHandles(
+        MGG_GraphicsDevice* device,
+        out MGP_NativeGraphicsHandles handles);
+
+    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_Texture_GetNativeImage", ExactSpelling = true)]
+    public static extern nint Texture_GetNativeImage(MGG_Texture* texture);
+
+    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_GraphicsDevice_CopyImage", ExactSpelling = true)]
+    public static extern void GraphicsDevice_CopyImage(
+        MGG_GraphicsDevice* device,
+        nint source,
+        nint destination,
+        int sourceLayout,
+        int width,
+        int height);
+
+    #endregion OpenXR / Native Interop
 }
