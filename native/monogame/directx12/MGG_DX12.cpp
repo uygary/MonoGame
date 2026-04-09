@@ -1369,14 +1369,9 @@ void MGG_Buffer_GetData(MGG_GraphicsDevice* device, MGG_Buffer* buffer, mgint of
 	}
 	else
 	{
-		// TODO: Is it stupid to consider this possibility, or is it better safe than sorry?
-		// I simply don't know the use-cases.
 		auto bytesToCopy = dataBytes < dataStride ? dataBytes : dataStride;
 		for (auto i = 0; i < dataCount; i++)
 		{
-			// TODO: What exactly happens here? Is this about padding?
-			// Assuming it is, how do we know where it is?
-			// Is it standard practice to have padding only at the end?
 			memcpy(data + (i * dataBytes), (void*)(pSourceDataBegin + (i * dataStride)), bytesToCopy);
 		}
 	}
