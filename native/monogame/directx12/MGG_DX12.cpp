@@ -1848,43 +1848,55 @@ MG_EXPORT void MGG_GraphicsDevice_CopyImage(
 	mgint width,
 	mgint height)
 {
+	OutputDebugStringA("[CopyImage] Enter\n");
+
 	if (!device || !source || !destination)
 	{
+		OutputDebugStringA("[CopyImage] ABORT: null device/source/destination\n");
 		return;
 	}
 
 	auto srcResource = static_cast<ID3D12Resource*>(source);
 	auto dstResource = static_cast<ID3D12Resource*>(destination);
 
-	// TODO: I think this is a bug.
-	//// Map MGNativeImageLayout enum to D3D12_RESOURCE_STATES
-	//D3D12_RESOURCE_STATES srcState;
-	//switch (static_cast<MGNativeImageLayout>(sourceLayout))
-	//{
-	//	case MGNativeImageLayout::ShaderReadOnly:
-	//	{
-	//		srcState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-	//		break;
-	//	}
-	//	case MGNativeImageLayout::RenderTarget:
-	//	default:
-	//	{
-	//		srcState = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	//		break;
-	//	}
-	//}
+	OutputDebugStringA("[CopyImage] Step 1: Flushing active frame commands\n");
 
-	// 1. Flush the active frame's commands to ensure draw calls are complete.
 	auto ctx = device->context;
+	if (!ctx)
+	{
+		OutputDebugStringA("[CopyImage] ABORT: null context\n");
+		return;
+	}
+
+	// Guard: if the command context was already closed, cmd will be null
+	if (!ctx->cmd)
+	{
+		OutputDebugStringA("[CopyImage] ABORT: context cmd is null (already closed?)\n");
+		return;
+	}
+
 	auto cq = device->resources->GetCommandQueue();
 	uint64_t fence = ctx->Close();
+	OutputDebugStringA("[CopyImage] Step 1a: Close() done, waiting on fence\n");
 	cq->WaitForFenceCPUBlocking(fence);
+	OutputDebugStringA("[CopyImage] Step 1b: Fence wait complete, GPU idle\n");
 
-	// After Close() + WaitForFence(), all DEFAULT-heap resources implicitly
-	// decay to D3D12_RESOURCE_STATE_COMMON per the D3D12 spec.
-	// We must use COMMON as the before-state for both source and destination.
+	// Validate resource descs
+	auto srcDesc = srcResource->GetDesc();
+	auto dstDesc = dstResource->GetDesc();
 
-	// 2. Record the copy on a separate command list.
+	char debugBuf[512];
+	sprintf_s(debugBuf, "[CopyImage] src: %ux%u fmt=%d, dst: %ux%u fmt=%d\n",
+		(UINT)srcDesc.Width, srcDesc.Height, (int)srcDesc.Format,
+		(UINT)dstDesc.Width, dstDesc.Height, (int)dstDesc.Format);
+	OutputDebugStringA(debugBuf);
+
+	if (srcDesc.Format != dstDesc.Format)
+	{
+		OutputDebugStringA("[CopyImage] WARNING: format mismatch between src and dst!\n");
+	}
+
+	OutputDebugStringA("[CopyImage] Step 2: Begin command list for copy\n");
 	auto cmdList = device->resources->BeginCommandList();
 	auto cl = cmdList->Get();
 
@@ -1904,27 +1916,29 @@ MG_EXPORT void MGG_GraphicsDevice_CopyImage(
 	barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
 	barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
+	OutputDebugStringA("[CopyImage] Step 3: ResourceBarrier (pre-copy)\n");
 	cl->ResourceBarrier(2, barriers);
 
-	// Copy resource
+	OutputDebugStringA("[CopyImage] Step 4: CopyResource\n");
 	cl->CopyResource(dstResource, srcResource);
 
-	// Transition both back to COMMON for clean handoff.
-	// Source: MonoGame's CommandContext::Reset() will re-track state.
-	// Destination: OpenXR compositor owns these resources and manages state internally.
+	// Transition both back to COMMON
 	barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
 	barriers[0].Transition.StateAfter  = D3D12_RESOURCE_STATE_COMMON;
 
 	barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
 	barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_COMMON;
 
+	OutputDebugStringA("[CopyImage] Step 5: ResourceBarrier (post-copy)\n");
 	cl->ResourceBarrier(2, barriers);
 
-	// Execute and wait for copy to complete
+	OutputDebugStringA("[CopyImage] Step 6: Close command list (blocking)\n");
 	cmdList->Close(true);
 
-	// 3. Restart the command context for the remainder of the frame.
+	OutputDebugStringA("[CopyImage] Step 7: Reset context\n");
 	ctx->Reset(ctx->m_backBufferIndex);
+
+	OutputDebugStringA("[CopyImage] Done\n");
 }
 
 #pragma endregion OpenXR / Native Interop
