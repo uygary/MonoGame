@@ -5,7 +5,8 @@
     <RepositoryUrl>https://github.com/MonoGame/MonoGame</RepositoryUrl>
     <Authors>MonoGame Team</Authors>
     <PackageLicenseExpression>MS-PL</PackageLicenseExpression>
-    <Version>3.8.3.1</Version>
+    <VersionPrefix>3.8.5</VersionPrefix>
+    <VersionSuffix>local.3</VersionSuffix>
   </PropertyGroup>
 
   <ItemGroup>

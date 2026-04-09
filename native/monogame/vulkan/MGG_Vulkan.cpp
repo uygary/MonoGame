@@ -717,92 +717,32 @@ static VkImageAspectFlags DetermineAspectMask(VkFormat format)
 static std::string g_requiredInstanceExtensions;
 static std::string g_requiredDeviceExtensions;
 
-MG_EXPORT void MGG_Vulkan_SetRequiredInstanceExtensions(const char* spaceSeparatedInstanceExtensions)
+MG_EXPORT void MGG_GraphicsDevice_SetRequiredExtensions(const char* instanceExtensions, const char* deviceExtensions)
 {
-	if (spaceSeparatedInstanceExtensions)
+	if (instanceExtensions)
 	{
-		g_requiredInstanceExtensions = spaceSeparatedInstanceExtensions;
+		g_requiredInstanceExtensions = instanceExtensions;
+	}
+	if (deviceExtensions)
+	{
+		g_requiredDeviceExtensions = deviceExtensions;
 	}
 }
 
-MG_EXPORT void MGG_Vulkan_SetRequiredDeviceExtensions(const char* spaceSeparatedDeviceExtensions)
+MG_EXPORT void MGG_GraphicsDevice_GetNativeHandles(const MGG_GraphicsDevice* device, MGP_NativeGraphicsHandles* handles)
 {
-	if (spaceSeparatedDeviceExtensions)
+	if (!device || !handles)
 	{
-		g_requiredDeviceExtensions = spaceSeparatedDeviceExtensions;
+		return;
 	}
-}
 
-MG_EXPORT void* MGG_GraphicsDevice_GetVulkanInstance(const MGG_GraphicsDevice* device)
-{
-	if (device == nullptr)
-	{
-		return nullptr;
-	}
-	else
-	{
-		return device->instance;
-	}
-}
-
-MG_EXPORT void* MGG_GraphicsDevice_GetVulkanPhysicalDevice(const MGG_GraphicsDevice* device)
-{
-	if (device == nullptr)
-	{
-		return nullptr;
-	}
-	else
-	{
-		return device->physicalDevice;
-	}
-}
-
-MG_EXPORT void* MGG_GraphicsDevice_GetVulkanDevice(const MGG_GraphicsDevice* device)
-{
-	if (device == nullptr)
-	{
-		return nullptr;
-	}
-	else
-	{
-		return device->device;
-	}
-}
-
-MG_EXPORT mgint MGG_GraphicsDevice_GetVulkanQueueFamilyIndex(const MGG_GraphicsDevice* device)
-{
-	if (device == nullptr)
-	{
-		return -1;
-	}
-	else
-	{
-		return static_cast<mgint>(device->queue_family_index);
-	}
-}
-
-MG_EXPORT mgint MGG_GraphicsDevice_GetVulkanQueueIndex(const MGG_GraphicsDevice* device)
-{
-	if (device == nullptr)
-	{
-		return -1;
-	}
-	else
-	{
-		return 0;
-	}
-}
-
-MG_EXPORT void* MGG_GraphicsDevice_GetVulkanQueue(const MGG_GraphicsDevice* device)
-{
-	if (device == nullptr)
-	{
-		return nullptr;
-	}
-	else
-	{
-		return (void*)device->queue;
-	}
+	handles->Backend          = MGGraphicsBackend::Vulkan;
+	handles->Instance         = device->instance;
+	handles->PhysicalDevice   = device->physicalDevice;
+	handles->Device           = device->device;
+	handles->Queue            = (void*)device->queue;
+	handles->QueueFamilyIndex = static_cast<mgint>(device->queue_family_index);
+	handles->QueueIndex       = 0;
 }
 
 bool AreValidationLayersSupported()
@@ -5503,7 +5443,7 @@ mgbyte MGG_OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQue
 	}
 }
 
-MG_EXPORT void* MGG_Texture_GetVulkanImage(const MGG_Texture* texture)
+MG_EXPORT void* MGG_Texture_GetNativeImage(const MGG_Texture* texture)
 {
 	if (texture == nullptr) {
 		return nullptr;
@@ -5514,12 +5454,29 @@ MG_EXPORT void* MGG_Texture_GetVulkanImage(const MGG_Texture* texture)
 MG_EXPORT void MGG_GraphicsDevice_CopyImage(MGG_GraphicsDevice* device,
 	void* source,
 	void* destination,
-	mgint sourceInitialLayout,
+	mgint sourceLayout,
 	mgint width,
 	mgint height)
 {
 	if (!device || !source || !destination) {
 		return;
+	}
+
+	// Map MGNativeImageLayout enum to VkImageLayout
+	VkImageLayout vkLayout;
+	switch (static_cast<MGNativeImageLayout>(sourceLayout))
+	{
+		case MGNativeImageLayout::ShaderReadOnly:
+		{
+			vkLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			break;
+		}
+		case MGNativeImageLayout::RenderTarget:
+		default:
+		{
+			vkLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			break;
+		}
 	}
 
 	bool restart_frame = false;
@@ -5557,14 +5514,13 @@ MG_EXPORT void MGG_GraphicsDevice_CopyImage(MGG_GraphicsDevice* device,
 
 	VkImage src = static_cast<VkImage>(source);
 	VkImage dst = static_cast<VkImage>(destination);
-	VkImageLayout srcLayout = static_cast<VkImageLayout>(sourceInitialLayout);
 
 	VkCommandBuffer cmd = MGVK_BeginNewCommandBuffer(device);
 
 	// Transition src to TRANSFER_SRC_OPTIMAL
 	MGVK_CmdTransitionImageLayout(cmd,
 		src,
-		srcLayout,
+		vkLayout,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -5604,7 +5560,7 @@ MG_EXPORT void MGG_GraphicsDevice_CopyImage(MGG_GraphicsDevice* device,
 	MGVK_CmdTransitionImageLayout(cmd,
 		src,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		srcLayout,
+		vkLayout,
 		VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// Transition dst to COLOR_ATTACHMENT_OPTIMAL (ready for OpenXR)
@@ -5621,3 +5577,4 @@ MG_EXPORT void MGG_GraphicsDevice_CopyImage(MGG_GraphicsDevice* device,
 		MGVK_BeginFrame(mainCmd);
 	}
 }
+
