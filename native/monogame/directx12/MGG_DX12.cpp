@@ -1363,7 +1363,7 @@ void MGG_Buffer_GetData(MGG_GraphicsDevice* device, MGG_Buffer* buffer, mgint of
 
 	UINT8* pSourceDataBegin;
 	DX::ThrowIfFailed(intermediateBuffer->Map(0, nullptr, reinterpret_cast<void**>(&pSourceDataBegin)));
-	if (dataBytes == dataStride)
+	if (dataStride == dataBytes)
 	{
 		memcpy(data, pSourceDataBegin, dataStride * dataCount);
 	}
