@@ -1856,22 +1856,23 @@ MG_EXPORT void MGG_GraphicsDevice_CopyImage(
 	auto srcResource = static_cast<ID3D12Resource*>(source);
 	auto dstResource = static_cast<ID3D12Resource*>(destination);
 
-	// Map MGNativeImageLayout enum to D3D12_RESOURCE_STATES
-	D3D12_RESOURCE_STATES srcState;
-	switch (static_cast<MGNativeImageLayout>(sourceLayout))
-	{
-		case MGNativeImageLayout::ShaderReadOnly:
-		{
-			srcState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-			break;
-		}
-		case MGNativeImageLayout::RenderTarget:
-		default:
-		{
-			srcState = D3D12_RESOURCE_STATE_RENDER_TARGET;
-			break;
-		}
-	}
+	// TODO: I think this is a bug.
+	//// Map MGNativeImageLayout enum to D3D12_RESOURCE_STATES
+	//D3D12_RESOURCE_STATES srcState;
+	//switch (static_cast<MGNativeImageLayout>(sourceLayout))
+	//{
+	//	case MGNativeImageLayout::ShaderReadOnly:
+	//	{
+	//		srcState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	//		break;
+	//	}
+	//	case MGNativeImageLayout::RenderTarget:
+	//	default:
+	//	{
+	//		srcState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	//		break;
+	//	}
+	//}
 
 	// 1. Flush the active frame's commands to ensure draw calls are complete.
 	auto ctx = device->context;
@@ -1879,20 +1880,24 @@ MG_EXPORT void MGG_GraphicsDevice_CopyImage(
 	uint64_t fence = ctx->Close();
 	cq->WaitForFenceCPUBlocking(fence);
 
+	// After Close() + WaitForFence(), all DEFAULT-heap resources implicitly
+	// decay to D3D12_RESOURCE_STATE_COMMON per the D3D12 spec.
+	// We must use COMMON as the before-state for both source and destination.
+
 	// 2. Record the copy on a separate command list.
 	auto cmdList = device->resources->BeginCommandList();
 	auto cl = cmdList->Get();
 
 	D3D12_RESOURCE_BARRIER barriers[2] = {};
 
-	// Transition source: srcState → COPY_SOURCE
+	// Transition source: COMMON → COPY_SOURCE
 	barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 	barriers[0].Transition.pResource   = srcResource;
-	barriers[0].Transition.StateBefore = srcState;
+	barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
 	barriers[0].Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_SOURCE;
 	barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-	// Transition destination: COMMON → COPY_DEST (OpenXR images start in COMMON)
+	// Transition destination: COMMON → COPY_DEST
 	barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 	barriers[1].Transition.pResource   = dstResource;
 	barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
@@ -1904,13 +1909,14 @@ MG_EXPORT void MGG_GraphicsDevice_CopyImage(
 	// Copy resource
 	cl->CopyResource(dstResource, srcResource);
 
-	// Transition source back to original state
+	// Transition both back to COMMON for clean handoff.
+	// Source: MonoGame's CommandContext::Reset() will re-track state.
+	// Destination: OpenXR compositor owns these resources and manages state internally.
 	barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
-	barriers[0].Transition.StateAfter  = srcState;
+	barriers[0].Transition.StateAfter  = D3D12_RESOURCE_STATE_COMMON;
 
-	// Transition destination: COPY_DEST → RENDER_TARGET (ready for OpenXR compositor)
 	barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-	barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	barriers[1].Transition.StateAfter  = D3D12_RESOURCE_STATE_COMMON;
 
 	cl->ResourceBarrier(2, barriers);
 
