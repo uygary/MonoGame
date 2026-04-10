@@ -1910,6 +1910,8 @@ void MGVK_RecreateSwapChain(
 		texture->info = image_create_info;
 		texture->image = swapchainImages[i];
 		texture->isSwapchain = texture->isTarget = true;
+		texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;
+		texture->optimal_layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		VK_SET_OBJECT_NAME(device->device, texture->image, VK_OBJECT_TYPE_IMAGE, "MGG_Texture.image (Swapchain %d)", i);
 
 		texture->target_view = CreateImageView(device, texture, 1);
@@ -2165,6 +2167,10 @@ static void MGVK_DestroyTargetSets(MGG_GraphicsDevice* device, std::function<boo
                     vkDestroyImageView(device->device, view.value(), nullptr);
                 }
             }
+			if (device->pipelineState.targets == itr->second)
+			{
+				device->pipelineState.targets = nullptr;
+			}
 			vkDestroyFramebuffer(device->device, itr->second->framebuffer, nullptr);
 			vkDestroyRenderPass(device->device, itr->second->renderPass, nullptr);
 			delete itr->second;
@@ -2244,8 +2250,12 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 				vkDestroyImageView(device->device, texture->target_view, nullptr);
 			if (texture->view != VK_NULL_HANDLE)
 				vkDestroyImageView(device->device, texture->view, nullptr);
-
-			vmaDestroyImage(device->allocator, texture->image, texture->allocation);
+			// Only destroy the image and its backing memory if we own it.
+			// Externally-owned textures (e.g. XR swapchain wraps) have allocation == VK_NULL_HANDLE.
+			if (texture->allocation != VK_NULL_HANDLE)
+			{
+				vmaDestroyImage(device->allocator, texture->image, texture->allocation);
+			}
 			delete texture;
 		}
 
@@ -2879,7 +2889,7 @@ static void MGVK_UpdateRenderPass(MGG_GraphicsDevice* device, FrameCounter curre
                     desc.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
                     desc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
                     desc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-                    desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+                    desc.finalLayout = target->optimal_layout;
                 }
                 else
                 {
@@ -4911,6 +4921,117 @@ void MGG_Texture_Destroy(MGG_GraphicsDevice* device, MGG_Texture* texture)
 
 	//remove_by_value(device->all_textures, texture);
 	//delete texture;
+}
+
+MGG_Texture* MGG_RenderTarget_WrapNativeImage(
+	MGG_GraphicsDevice* device,
+	void* nativeImage,
+	MGSurfaceFormat format,
+	mgint width,
+	mgint height,
+	MGDepthFormat depthFormat,
+	mgint multiSampleCount)
+{
+	assert(device != nullptr);
+	assert(nativeImage != nullptr);
+	assert(width > 0);
+	assert(height > 0);
+
+	auto texture = new MGG_Texture();
+	texture->isTarget = true;
+	texture->isSwapchain = true; // Marks as externally owned — prevents image/memory destruction
+	texture->type = MGTextureType::_2D;
+	texture->format = format;
+	texture->id = ++device->currentTextureId;
+	texture->multiSampleCount = multiSampleCount;
+	texture->usage = MGRenderTargetUsage::DiscardContents;
+
+	// Set the externally-owned VkImage — we do NOT allocate memory
+	texture->image = static_cast<VkImage>(nativeImage);
+	texture->allocation = VK_NULL_HANDLE; // No VMA ownership
+
+	// Populate VkImageCreateInfo for view creation and internal lookups
+	VkImageCreateInfo& create_info = texture->info;
+	create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	create_info.imageType = VK_IMAGE_TYPE_2D;
+	create_info.flags = 0;
+	create_info.format = ToVkFormat(format);
+	create_info.extent.width = static_cast<uint32_t>(width);
+	create_info.extent.height = static_cast<uint32_t>(height);
+	create_info.extent.depth = 1;
+	create_info.mipLevels = 1;
+	create_info.arrayLayers = 1;
+	create_info.samples = ToVkSampleCount(multiSampleCount);
+	create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+	create_info.usage = VK_IMAGE_USAGE_SAMPLED_BIT |
+	                    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+	                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+	                    VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	// OpenXR swapchain images are typically in COLOR_ATTACHMENT_OPTIMAL after acquire
+	texture->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	texture->optimal_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	// Create image views for sampling and rendering
+	texture->view = CreateImageView(device, texture, 1);
+	VK_SET_OBJECT_NAME(device->device, texture->view, VK_OBJECT_TYPE_IMAGE_VIEW,
+		"MGG_Texture.view (XR Wrap id: %llu)", texture->id);
+	texture->target_view = CreateImageView(device, texture, 1);
+	VK_SET_OBJECT_NAME(device->device, texture->target_view, VK_OBJECT_TYPE_IMAGE_VIEW,
+		"MGG_Texture.target_view (XR Wrap id: %llu)", texture->id);
+
+	// Create depth buffer if requested (this we DO own)
+	if (depthFormat != MGDepthFormat::None)
+	{
+		texture->depthFormat = depthFormat;
+		texture->depthTexture = CreateDepthTexture(device, ToVkFormat(depthFormat), width, height, multiSampleCount);
+		VK_SET_OBJECT_NAME(device->device, texture->depthTexture->image, VK_OBJECT_TYPE_IMAGE,
+			"MGG_Texture.depthTexture.image (for XR Wrap id: %llu)", texture->id);
+		texture->depthTexture->target_view = CreateImageView(device, texture->depthTexture, 1);
+		VK_SET_OBJECT_NAME(device->device, texture->depthTexture->target_view, VK_OBJECT_TYPE_IMAGE_VIEW,
+			"MGG_Texture.depthTexture.target_view (for XR Wrap id: %llu)", texture->id);
+	}
+
+	return texture;
+}
+
+void MGG_RenderTarget_UpdateNativeImage(
+	MGG_Texture* texture,
+	void* nativeImage,
+	MGG_GraphicsDevice* device)
+{
+	assert(texture != nullptr);
+	assert(nativeImage != nullptr);
+	assert(device != nullptr);
+	assert(texture->isSwapchain); // Only valid for externally-owned textures
+
+	// Destroy old image views (but NOT the image itself — OpenXR owns it)
+	if (texture->target_view != VK_NULL_HANDLE)
+	{
+		vkDestroyImageView(device->device, texture->target_view, nullptr);
+		texture->target_view = VK_NULL_HANDLE;
+	}
+	if (texture->view != VK_NULL_HANDLE)
+	{
+		vkDestroyImageView(device->device, texture->view, nullptr);
+		texture->view = VK_NULL_HANDLE;
+	}
+
+	// Update the VkImage pointer
+	texture->image = static_cast<VkImage>(nativeImage);
+
+	// Reset layout — OpenXR swapchain images are in COLOR_ATTACHMENT_OPTIMAL after acquire
+	texture->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	// Recreate image views for the new image
+	texture->view = CreateImageView(device, texture, 1);
+	VK_SET_OBJECT_NAME(device->device, texture->view, VK_OBJECT_TYPE_IMAGE_VIEW,
+		"MGG_Texture.view (XR Update id: %llu)", texture->id);
+	texture->target_view = CreateImageView(device, texture, 1);
+	VK_SET_OBJECT_NAME(device->device, texture->target_view, VK_OBJECT_TYPE_IMAGE_VIEW,
+		"MGG_Texture.target_view (XR Update id: %llu)", texture->id);
 }
 
 static void MGVK_ClampAndValidateTextureRegion(

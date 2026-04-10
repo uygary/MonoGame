@@ -486,5 +486,21 @@ internal static unsafe partial class MGG
         int width,
         int height);
 
+    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_RenderTarget_WrapNativeImage", ExactSpelling = true)]
+    public static extern MGG_Texture* RenderTarget_WrapNativeImage(
+        MGG_GraphicsDevice* device,
+        nint nativeImage,
+        SurfaceFormat format,
+        int width,
+        int height,
+        DepthFormat depthFormat,
+        int multiSampleCount);
+
+    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_RenderTarget_UpdateNativeImage", ExactSpelling = true)]
+    public static extern void RenderTarget_UpdateNativeImage(
+        MGG_Texture* texture,
+        nint nativeImage,
+        MGG_GraphicsDevice* device);
+
     #endregion OpenXR / Native Interop
 }

@@ -18,12 +18,18 @@ public:
 #ifndef _GAMING_XBOX
     Texture(DeviceResources* device, IDXGISwapChain3* swapchain, int bufferId);
 #endif
+    // Wrap an externally-owned resource (e.g. OpenXR swapchain image).
+    // Creates RTV + SRV descriptors but does NOT allocate GPU memory.
+    Texture(DeviceResources* device, ID3D12Resource* externalResource, MGSurfaceFormat format);
     ~Texture();
 
     // CppSharp doesn't seem to recognize default parameters (even with HandleDefaultParamValuesPass...), this add an overload to bypass that
     inline void Create(DeviceResources* device) { Create(device, true); }
     void Create(DeviceResources* device, bool createViews);
     void FreeDescriptors(DeviceResources* device);
+    // Updates the underlying resource pointer (for XR swapchain image rotation).
+    // Frees old descriptors and recreates SRV + RTV from the new resource.
+    void UpdateResource(DeviceResources* device, ID3D12Resource* newResource);
 
     void SetClearColor(float r, float g, float b, float a);
     void SetMSAA(int sampleCount);

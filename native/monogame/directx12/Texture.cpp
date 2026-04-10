@@ -93,11 +93,54 @@ Texture::Texture(DeviceResources* device, IDXGISwapChain3* swapchain, int buffer
 }
 #endif
 
+Texture::Texture(DeviceResources* device, ID3D12Resource* externalResource, MGSurfaceFormat format) {
+    impl = new InternalData();
+    impl->m_type = SurfaceType::RenderTarget;
+    impl->m_dimension = TextureDimension::Texture2D;
+    // OpenXR swapchain images are in D3D12_RESOURCE_STATE_COMMON
+    // We must set tracking correctly so transitions are emitted when binding as RTV.
+    impl->m_currentState = D3D12_RESOURCE_STATE_COMMON;
+    impl->m_depthFormat = MGDepthFormat::None;
+    impl->m_levels = 1;
+    impl->m_alloc = nullptr; // No D3D12MA allocation — externally owned
+
+    impl->m_res = externalResource; // ComPtr will AddRef
+    impl->m_desc = externalResource->GetDesc();
+
+    // OpenXR swapchains are typically created with TYPELESS formats. 
+    // We must resolve this to a typed format to create SRVs and RTVs.
+    DXGI_FORMAT viewFormat = Graphics::TextureFormatToDXGI_FORMAT(format);
+
+    // Override the generic resource format with the explicitly typed view format.
+    // If we leave this as TYPELESS, D3D12 CreateGraphicsPipelineState will return E_INVALIDARG
+    // when setting up the RTVFormats descriptor, triggering an SEHException inside DrawIndexed.
+    impl->m_desc.Format = viewFormat;
+
+    // Create SRV descriptor
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = viewFormat;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.MipLevels = 1;
+    srvDesc.Texture2D.PlaneSlice = 0;
+    impl->m_srvHandle = device->GetGraphicsHeaps()->CreateSRVHandle(externalResource, srvDesc);
+
+    // Create RTV descriptor — only if resource has ALLOW_RENDER_TARGET flag
+    if (impl->m_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET) {
+        D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+        rtvDesc.Format = viewFormat;
+        rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+        impl->m_rtvHandle = device->GetGraphicsHeaps()->CreateRTVHandle(externalResource, rtvDesc);
+    }
+}
+
 Texture::~Texture() {
     delete impl;
 }
 
 void Texture::Create(DeviceResources* device, bool createViews) {
+
     CD3DX12_CLEAR_VALUE optimizedClearValue;
     optimizedClearValue.Format = impl->m_desc.Format;
     
@@ -126,13 +169,13 @@ void Texture::Create(DeviceResources* device, bool createViews) {
         resDesc.Format = ConvertSRVtoResourceFormat(impl->m_desc.Format);
 
     D3D12MA::ALLOCATION_DESC allocDesc = { D3D12MA::ALLOCATION_FLAG_COMMITTED, D3D12_HEAP_TYPE_DEFAULT, heapFlags };
-    device->GetAllocator()->CreateResource(
+    ThrowIfFailed(device->GetAllocator()->CreateResource(
         &allocDesc,
         &resDesc,
         impl->m_currentState,
         pClearValue,
         impl->m_alloc.ReleaseAndGetAddressOf(),
-        IID_GRAPHICS_PPV_ARGS(impl->m_res.ReleaseAndGetAddressOf()));
+        IID_GRAPHICS_PPV_ARGS(impl->m_res.ReleaseAndGetAddressOf())));
 
     switch (impl->m_type) {
     case SurfaceType::Texture:
@@ -171,6 +214,7 @@ void Texture::Create(DeviceResources* device, bool createViews) {
             srvDesc.TextureCube.MipLevels = impl->m_levels;
             break;
         }
+
         impl->m_srvHandle = device->GetGraphicsHeaps()->CreateSRVHandle(impl->m_res.Get(), srvDesc);
     }
 
@@ -211,6 +255,30 @@ void Texture::FreeDescriptors(DeviceResources* device) {
 
     if (impl->m_dsvHandle.ptr) device->GetGraphicsHeaps()->FreeDSVHandle(impl->m_dsvHandle);
     impl->m_dsvHandle = {};
+}
+
+void Texture::UpdateResource(DeviceResources* device, ID3D12Resource* newResource) {
+    FreeDescriptors(device);
+
+    impl->m_res = newResource; // ComPtr handles ref counting
+    impl->m_desc = newResource->GetDesc();
+    impl->m_currentState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+
+    // Recreate SRV descriptor
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = impl->m_desc.Format;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.MipLevels = 1;
+    srvDesc.Texture2D.PlaneSlice = 0;
+    impl->m_srvHandle = device->GetGraphicsHeaps()->CreateSRVHandle(newResource, srvDesc);
+
+    // Recreate RTV descriptor
+    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+    rtvDesc.Format = impl->m_desc.Format;
+    rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+    impl->m_rtvHandle = device->GetGraphicsHeaps()->CreateRTVHandle(newResource, rtvDesc);
 }
 
 void Texture::SetClearColor(float r, float g, float b, float a) {
