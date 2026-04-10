@@ -56,8 +56,15 @@ static constexpr DXGI_FORMAT DepthFormatToDXGI_FORMAT[] = {
 static constexpr DXGI_FORMAT DepthFormatToSRV[] = {
     DXGI_FORMAT_UNKNOWN,
     DXGI_FORMAT_R16_UNORM,
-    DXGI_FORMAT_R24_UNORM_X8_TYPELESS, // stencil typeless, not readable in shader since it shouldn't be here in the first place
-    DXGI_FORMAT_R24G8_TYPELESS // stencil accessed by G channel
+    DXGI_FORMAT_R24_UNORM_X8_TYPELESS,  // For Depth24: Depth only. Stencil is typeless. ("stencil typeless, not readable in shader since it shouldn't be here in the first place")
+    DXGI_FORMAT_R24_UNORM_X8_TYPELESS   // For Depth24Stencil8: There is stencil, but SRV reads only depth. Stencil is typeless, and not accessible by shader via this view. (I'm not sure what the original comment means: "stencil accessed by G channel")
+};
+
+static constexpr DXGI_FORMAT DepthFormatToStencilSRV[] = {
+    DXGI_FORMAT_UNKNOWN,
+    DXGI_FORMAT_UNKNOWN,                // For Depth16: Ignored.
+    DXGI_FORMAT_UNKNOWN,                // For Depth24: Ignored.
+    DXGI_FORMAT_X24_TYPELESS_G8_UINT    // For Depth24Stencil8: Depth is typeless and ignored, stencil is G8_UINT.
 };
 
 static constexpr D3D_PRIMITIVE_TOPOLOGY PrimitiveTypeToD3D_PRIMITIVE_TOPOLOGY[] = {
