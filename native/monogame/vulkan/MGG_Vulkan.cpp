@@ -1523,6 +1523,15 @@ static void cleanupSwapChain(MGG_GraphicsDevice* device)
 					vkDestroyImageView(device->device, view.value(), nullptr);
 				}
 			}
+
+			// I suspect pipelineState.targets is pointing to this cache entry.
+			if (device->pipelineState.targets == targetSetCache)
+			{
+				// If it is, nullify it to avoid dangling pointers.
+				// (This is what MGVK_DestroyTargetSets appers to be already doing.)
+				device->pipelineState.targets = nullptr;
+			}
+
 			vkDestroyRenderPass(device->device, targetSetCache->renderPass, nullptr);
 			vkDestroyFramebuffer(device->device, targetSetCache->framebuffer, nullptr);
 			delete targetSetCache;
@@ -4916,9 +4925,9 @@ void MGG_Texture_Destroy(MGG_GraphicsDevice* device, MGG_Texture* texture)
 	if (texture->depthTexture)
 		MGG_Texture_Destroy(device, texture->depthTexture);
 
+	// Is this is an externally owned texture, like an OpenXR swapchain wrapped in a RenderTarget2D.
 	if (texture->isSwapchain && texture->allocation == VK_NULL_HANDLE)
 	{
-		// This is an externally owned texture, like an OpenXR swapchain wrapped in a RenderTarget2D.
 		// We should tear-down its views before the caller (i.e. OpenXR) destroys the underlying VkImages.
 		// Otherwise, we'll have access violation during deferred cleanup.
 		
@@ -4928,20 +4937,20 @@ void MGG_Texture_Destroy(MGG_GraphicsDevice* device, MGG_Texture* texture)
 		if (texture->isTarget)
 		{
 			MGVK_DestroyPipelines(device, [texture](const MGVK_PipelineState& s)
-			{
+				{
 					return	s.targets->set.targets[0] == texture
 						|| s.targets->set.targets[1] == texture
 						|| s.targets->set.targets[2] == texture
 						|| s.targets->set.targets[3] == texture;
-			});
+				});
 
 			MGVK_DestroyTargetSets(device, [texture](const MGVK_TargetSetCache* s)
-			{
+				{
 					return	s->set.targets[0] == texture
 						|| s->set.targets[1] == texture
 						|| s->set.targets[2] == texture
 						|| s->set.targets[3] == texture;
-			});
+				});
 		}
 
 		if (texture->target_view != VK_NULL_HANDLE)
@@ -5058,6 +5067,26 @@ void MGG_RenderTarget_UpdateNativeImage(
 		texture->view = VK_NULL_HANDLE;
 	}
 
+	// Invalidate any cached framebuffers/render passes that reference this texture.
+	// The old image views we just destroyed are baked into those framebuffers,
+	// so they must be torn down before we create the new views.
+	MGVK_DestroyPipelines(device, [texture](const MGVK_PipelineState& s)
+		{
+			if (!s.targets) { return false; }
+			return	s.targets->set.targets[0] == texture
+				|| s.targets->set.targets[1] == texture
+				|| s.targets->set.targets[2] == texture
+				|| s.targets->set.targets[3] == texture;
+		});
+
+	MGVK_DestroyTargetSets(device, [texture](const MGVK_TargetSetCache* s)
+		{
+			return	s->set.targets[0] == texture
+				|| s->set.targets[1] == texture
+				|| s->set.targets[2] == texture
+				|| s->set.targets[3] == texture;
+		});
+
 	// Update the VkImage pointer
 	texture->image = static_cast<VkImage>(nativeImage);
 
@@ -5071,6 +5100,10 @@ void MGG_RenderTarget_UpdateNativeImage(
 	texture->target_view = CreateImageView(device, texture, 1);
 	VK_SET_OBJECT_NAME(device->device, texture->target_view, VK_OBJECT_TYPE_IMAGE_VIEW,
 		"MGG_Texture.target_view (XR Update id: %llu)", texture->id);
+
+	// Force the render pass to be re-created on next draw
+	device->pipelineStateDirty = true;
+	device->renderTargetDirty = true;
 }
 
 static void MGVK_ClampAndValidateTextureRegion(
