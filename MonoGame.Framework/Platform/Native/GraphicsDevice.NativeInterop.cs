@@ -41,28 +41,4 @@ public partial class GraphicsDevice
             QueueIndex       = native.QueueIndex,
         };
     }
-
-    /// <summary>
-    /// Copies image data between two native images with appropriate layout/state transitions.
-    /// Used for XR swapchain image submission. Flushes active GPU commands before copying.
-    /// </summary>
-    /// <param name="source">Source native image handle (VkImage or ID3D12Resource*).</param>
-    /// <param name="destination">Destination native image handle.</param>
-    /// <param name="sourceLayout">Current layout/state of the source image.</param>
-    /// <param name="width">Image width in pixels.</param>
-    /// <param name="height">Image height in pixels.</param>
-    public unsafe void CopyNativeImage(
-        nint source,
-        nint destination,
-        NativeImageLayout sourceLayout,
-        int width,
-        int height)
-    {
-        MGG.GraphicsDevice_CopyImage(Handle,
-            source,
-            destination,
-            (int)sourceLayout,
-            width,
-            height);
-    }
 }
