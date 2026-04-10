@@ -4916,11 +4916,50 @@ void MGG_Texture_Destroy(MGG_GraphicsDevice* device, MGG_Texture* texture)
 	if (texture->depthTexture)
 		MGG_Texture_Destroy(device, texture->depthTexture);
 
+	if (texture->isSwapchain && texture->allocation == VK_NULL_HANDLE)
+	{
+		// This is an externally owned texture, like an OpenXR swapchain wrapped in a RenderTarget2D.
+		// We should tear-down its views before the caller (i.e. OpenXR) destroys the underlying VkImages.
+		// Otherwise, we'll have access violation during deferred cleanup.
+		
+		// Wait for the device to be idle to safely destroy its views.
+		vkDeviceWaitIdle(device->device);
+
+		if (texture->isTarget)
+		{
+			MGVK_DestroyPipelines(device, [texture](const MGVK_PipelineState& s)
+			{
+					return	s.targets->set.targets[0] == texture
+						|| s.targets->set.targets[1] == texture
+						|| s.targets->set.targets[2] == texture
+						|| s.targets->set.targets[3] == texture;
+			});
+
+			MGVK_DestroyTargetSets(device, [texture](const MGVK_TargetSetCache* s)
+			{
+					return	s->set.targets[0] == texture
+						|| s->set.targets[1] == texture
+						|| s->set.targets[2] == texture
+						|| s->set.targets[3] == texture;
+			});
+		}
+
+		if (texture->target_view != VK_NULL_HANDLE)
+		{
+			vkDestroyImageView(device->device, texture->target_view, nullptr);
+		}
+		if (texture->view != VK_NULL_HANDLE)
+		{
+			
+			vkDestroyImageView(device->device, texture->view, nullptr);
+		}
+
+		delete texture;
+		return;
+	}
+
 	// Queue the texture for later destruction.
 	device->destroyTextures.push(texture);
-
-	//remove_by_value(device->all_textures, texture);
-	//delete texture;
 }
 
 MGG_Texture* MGG_RenderTarget_WrapNativeImage(
