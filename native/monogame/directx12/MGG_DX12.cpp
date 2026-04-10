@@ -1927,4 +1927,64 @@ MG_EXPORT void MGG_GraphicsDevice_CopyImage(
 	}
 }
 
+MGG_Texture* MGG_RenderTarget_WrapNativeImage(
+	MGG_GraphicsDevice* device,
+	void* nativeImage,
+	MGSurfaceFormat format,
+	mgint width,
+	mgint height,
+	MGDepthFormat depthFormat,
+	mgint multiSampleCount)
+{
+	if (!device)
+	{
+		return nullptr;
+	}
+
+	if (!nativeImage)
+	{
+		return nullptr;
+	}
+	if (!device->resources)
+	{
+		return nullptr;
+	}
+
+	auto* srcResource = static_cast<ID3D12Resource*>(nativeImage);
+
+	auto desc = srcResource->GetDesc();
+
+	auto texture = new MGG_Texture();
+	texture->format = format;
+
+	// Create a Texture wrapper around the external resource.
+	// This constructor creates RTV + SRV descriptors without allocating GPU memory.
+	texture->texture = new Texture(device->resources, srcResource, format);
+
+	// Create depth buffer if requested (this we DO own)
+	if (depthFormat != MGDepthFormat::None)
+	{
+		texture->depthTexture = new Texture(width, height, depthFormat);
+		texture->depthTexture->Create(device->resources);
+	}
+
+	return texture;
+}
+
+void MGG_RenderTarget_UpdateNativeImage(
+	MGG_Texture* texture,
+	void* nativeImage,
+	MGG_GraphicsDevice* device)
+{
+	assert(texture != nullptr);
+	assert(nativeImage != nullptr);
+	assert(device != nullptr);
+
+	auto* srcResource = static_cast<ID3D12Resource*>(nativeImage);
+
+	// Use the Texture's public UpdateResource method to swap the resource
+	// and recreate descriptors.
+	texture->texture->UpdateResource(device->resources, srcResource);
+}
+
 #pragma endregion OpenXR / Native Interop
