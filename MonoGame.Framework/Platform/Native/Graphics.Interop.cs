@@ -473,19 +473,7 @@ internal static unsafe partial class MGG
     public static extern void GraphicsDevice_GetNativeHandles(
         MGG_GraphicsDevice* device,
         out MGP_NativeGraphicsHandles handles);
-
-    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_Texture_GetNativeImage", ExactSpelling = true)]
-    public static extern nint Texture_GetNativeImage(MGG_Texture* texture);
-
-    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_GraphicsDevice_CopyImage", ExactSpelling = true)]
-    public static extern void GraphicsDevice_CopyImage(
-        MGG_GraphicsDevice* device,
-        nint source,
-        nint destination,
-        int sourceLayout,
-        int width,
-        int height);
-
+    
     [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_RenderTarget_WrapNativeImage", ExactSpelling = true)]
     public static extern MGG_Texture* RenderTarget_WrapNativeImage(
         MGG_GraphicsDevice* device,

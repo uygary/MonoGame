@@ -91,14 +91,6 @@ MG_EXPORT void  MGG_GraphicsDevice_SetRequiredExtensions(const char* instanceExt
 // Retrieve native graphics API handles for XR binding.
 MG_EXPORT void  MGG_GraphicsDevice_GetNativeHandles(const MGG_GraphicsDevice* device, MGP_NativeGraphicsHandles* handles);
 
-// Get the native image/resource handle from a texture.
-// Returns VkImage (Vulkan) or ID3D12Resource* (DX12).
-MG_EXPORT void* MGG_Texture_GetNativeImage(const MGG_Texture* texture);
-
-// Copy image data between native images with layout/state transitions.
-// sourceLayout: MGNativeImageLayout value.
-MG_EXPORT void  MGG_GraphicsDevice_CopyImage(MGG_GraphicsDevice* device, void* source, void* destination, mgint sourceLayout, mgint width, mgint height);
-
 // Wrap an externally-owned native image (VkImage or ID3D12Resource*) as a render target.
 // The returned MGG_Texture does NOT own the image memory — caller (e.g. OpenXR) is responsible for its lifetime.
 // Creates image views and an optional depth buffer (which IS owned by the returned texture).
