@@ -605,6 +605,10 @@ void MGG_GraphicsDevice_SetDepthStencilState(MGG_GraphicsDevice* device, MGG_Dep
 
 	auto& depthStencilState = device->pipelineManager->impl->m_currentPSODesc.DepthStencilState;
 	depthStencilState = state->desc;
+	
+	// Set stencil reference on every frame.
+	auto commandList = device->context->GetCommandList();
+	commandList->OMSetStencilRef(state->referenceStencil);
 }
 
 void MGG_GraphicsDevice_SetRasterizerState(MGG_GraphicsDevice* device, MGG_RasterizerState* state)
