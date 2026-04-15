@@ -557,9 +557,3 @@ enum class MGGamePadType : mgint
     BigButtonPad = 768,
 };
 
-enum class MGNativeImageLayout : mgint
-{
-    RenderTarget = 0,
-    ShaderReadOnly = 1,
-};
-
