@@ -98,7 +98,7 @@ MG_EXPORT MGG_Texture* MGG_RenderTarget_WrapNativeImage(MGG_GraphicsDevice* devi
 
 // Update the image pointer on an existing render target that wraps a native image.
 // Destroys and recreates image views. Doesn't touch the depth buffer.
-// Used for swapchain image rotation. This is called after xrAcquireSwapchainImage call on OpenXR.
+// Used for swapchain image rotation. This is called after AcquireSwapchainImage call on OpenXR.
 MG_EXPORT void  MGG_RenderTarget_UpdateNativeImage(MGG_Texture* texture, void* nativeImage, MGG_GraphicsDevice* device);
 
 #pragma endregion OpenXR / Native Interop

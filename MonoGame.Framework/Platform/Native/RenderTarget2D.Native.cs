@@ -33,18 +33,20 @@ public partial class RenderTarget2D
     }
 
     /// <summary>
-    /// Creates a <see cref="RenderTarget2D"/> that wraps an externally-owned native image
-    /// (e.g. an OpenXR swapchain <c>VkImage</c> or <c>ID3D12Resource*</c>).
-    /// The returned render target does NOT own the native image memory —
-    /// the caller is responsible for its lifetime.
+    /// Creates a <see cref="RenderTarget2D"/> that wraps an externally-owned native image.
+    /// Like an OpenXR swap-chain <c>VkImage</c> or <c>ID3D12Resource*</c>.
     /// </summary>
     /// <param name="graphicsDevice">The MonoGame graphics device.</param>
-    /// <param name="nativeImageHandle">The native image handle (<c>VkImage</c> cast to <see cref="nint"/>, or <c>ID3D12Resource*</c>).</param>
+    /// <param name="nativeImageHandle">The native image handle. <para>This should be <c>VkImage</c> cast to <see cref="nint"/> for Vulkan, or <c>ID3D12Resource*</c> for DX12.</para></param>
     /// <param name="width">Image width in pixels.</param>
     /// <param name="height">Image height in pixels.</param>
     /// <param name="format">The surface format of the native image.</param>
     /// <param name="depthFormat">Depth format for an internally-created depth buffer, or <see cref="DepthFormat.None"/>.</param>
     /// <param name="multiSampleCount">MSAA sample count (0 for none).</param>
+    /// <remarks>
+    /// WARNING: The returned render target doesn't own the native image.
+    /// The caller is responsible for its lifetime.
+    /// </remarks>
     /// <returns>A non-owning <see cref="RenderTarget2D"/> backed by the native image.</returns>
     public static unsafe RenderTarget2D FromNativeImage(
         GraphicsDevice graphicsDevice,
@@ -83,17 +85,19 @@ public partial class RenderTarget2D
         // the OpenXR-owned VkImage. The MGG_Texture struct (views + depth) WILL be cleaned up
         // since MGG_Texture_Destroy now only skips vmaDestroyImage for null allocations.
         rt.Handle = handle;
-        rt.Owned = true; // We DO own the MGG_Texture* wrapper (views, depth buffer) — just not the VkImage
+        rt.Owned = true; // We do own the MGG_Texture* wrapper (views, depth buffer), just not the swapchain image.
 
         return rt;
     }
 
     /// <summary>
-    /// Updates the native image pointer on a render target previously created with
-    /// <see cref="FromNativeImage"/>. This is used for swapchain image rotation
-    /// (e.g. after <c>xrAcquireSwapchainImage</c> returns a new image index).
-    /// Destroys and recreates the image views. Does not touch the depth buffer.
+    /// Updates the native image pointer on a render target previously created with <see cref="FromNativeImage"/>.
+    /// Destroys and recreates the image views.
+    /// Does not touch the depth buffer.
     /// </summary>
+    /// <remarks>
+    /// This can be used for swap-chain image rotation after a <c>AcquireSwapchainImage</c> call to OpenXR.
+    /// </remarks>
     /// <param name="newNativeImageHandle">The new native image handle.</param>
     public unsafe void UpdateNativeImage(nint newNativeImageHandle)
     {
