@@ -8,7 +8,7 @@ namespace Microsoft.Xna.Framework.Graphics;
 
 /// <summary>
 /// Contains native graphics API handles for XR or other external interop.
-/// <see cref="PhysicalDevice"/>, <see cref="Device"/> and <see cref="Queue"/> are always populated for the native backends (Vulkan & DX12).
+/// <see cref="PhysicalDevice"/>, <see cref="Device"/> and <see cref="Queue"/> are always populated for the native backends (Vulkan and DX12).
 /// Other fields depend on <see cref="Backend"/>.
 /// </summary>
 public readonly struct NativeGraphicsHandles
