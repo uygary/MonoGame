@@ -27,9 +27,6 @@ public:
     inline void Create(DeviceResources* device) { Create(device, true); }
     void Create(DeviceResources* device, bool createViews);
     void FreeDescriptors(DeviceResources* device);
-    // Updates the underlying resource pointer (for XR swapchain image rotation).
-    // Frees old descriptors and recreates SRV + RTV from the new resource.
-    void UpdateResource(DeviceResources* device, ID3D12Resource* newResource);
 
     void SetClearColor(float r, float g, float b, float a);
     void SetMSAA(int sampleCount);
