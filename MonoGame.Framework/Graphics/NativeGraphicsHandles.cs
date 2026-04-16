@@ -7,43 +7,76 @@ using MonoGame.Framework.Utilities;
 namespace Microsoft.Xna.Framework.Graphics;
 
 /// <summary>
-/// Contains native graphics API handles for XR and external interop.
+/// Contains native graphics API handles for XR or other external interop.
 /// <see cref="Device"/> and <see cref="Queue"/> are always populated.
 /// Other fields depend on <see cref="Backend"/>.
 /// </summary>
-public struct NativeGraphicsHandles
+public readonly struct NativeGraphicsHandles
 {
-    /// <summary>The active graphics backend.</summary>
-    public GraphicsBackend Backend;
+    /// <summary>
+    /// The active graphics backend.
+    /// </summary>
+    public readonly GraphicsBackend Backend;
 
-    /// <summary>Vulkan: VkInstance handle. Other backends: zero.</summary>
-    public nint Instance;
+    /// <summary>
+    /// Vulkan: <c>VkInstance</c> handle. Other backends: Zero.
+    /// </summary>
+    public readonly nint Instance;
 
-    /// <summary>Vulkan: VkPhysicalDevice handle. Other backends: zero.</summary>
-    public nint PhysicalDevice;
+    /// <summary>
+    /// Vulkan: <c>VkPhysicalDevice</c> handle. Other backends: Zero.
+    /// </summary>
+    public readonly nint PhysicalDevice;
 
     /// <summary>
     /// The primary graphics device handle.
     /// </summary>
     /// <remarks>
+    /// Only native backends are implemented.
     /// <para>
     /// For Vulkan, this is <c>VkDevice</c>.
-    /// </para>
-    /// <para>
-    /// For DX12:, this is <c>ID3D12Device*</c>.
+    /// For DX12, this is <c>ID3D12Device*</c>.
+    /// Other backends: Zero.
     /// </para>
     /// </remarks>
-    public nint Device;
+    public readonly nint Device;
 
     /// <summary>
     /// The primary graphics queue handle.
-    /// Vulkan: VkQueue. DX12: ID3D12CommandQueue*.
+    /// Vulkan: <c>VkQueue</c>. DX12: <c>ID3D12CommandQueue*</c>.
     /// </summary>
-    public nint Queue;
+    public readonly nint Queue;
 
-    /// <summary>Vulkan: queue family index. Other backends: 0.</summary>
-    public int QueueFamilyIndex;
+    /// <summary>
+    /// Vulkan: queue family index.
+    /// Other backends: Zero.
+    /// </summary>
+    public readonly int QueueFamilyIndex;
 
-    /// <summary>Vulkan: queue index within family. Other backends: 0.</summary>
-    public int QueueIndex;
+    /// <summary>
+    /// Vulkan: queue index within family.
+    /// Other backends: Zero.
+    /// </summary>
+    public readonly int QueueIndex;
+
+    /// <summary>
+    /// Creates a new <see cref="NativeGraphicsHandles"/> instance that holds the provided handles (pointers).
+    /// </summary>
+    public NativeGraphicsHandles(
+        GraphicsBackend backend,
+        nint instance,
+        nint physicalDevice,
+        nint device,
+        nint queue,
+        int queueFamilyIndex,
+        int queueIndex)
+    {
+        Backend = backend;
+        Instance = instance;
+        PhysicalDevice = physicalDevice;
+        Device = device;
+        Queue = queue;
+        QueueFamilyIndex = queueFamilyIndex;
+        QueueIndex = queueIndex;
+    }
 }

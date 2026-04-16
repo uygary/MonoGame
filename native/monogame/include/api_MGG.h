@@ -92,13 +92,13 @@ MG_EXPORT void  MGG_GraphicsDevice_SetRequiredExtensions(const char* instanceExt
 MG_EXPORT void  MGG_GraphicsDevice_GetNativeHandles(const MGG_GraphicsDevice* device, MGP_NativeGraphicsHandles* handles);
 
 // Wrap an externally-owned native image (VkImage or ID3D12Resource*) as a render target.
-// The returned MGG_Texture does NOT own the image memory — caller (e.g. OpenXR) is responsible for its lifetime.
-// Creates image views and an optional depth buffer (which IS owned by the returned texture).
+// The returned MGG_Texture doesn't own the image memory. OpenXR (or whatever external component is using this) is responsible for its lifetime.
+// Creates image views and an optional depth buffer, which is owned by the returned texture.
 MG_EXPORT MGG_Texture* MGG_RenderTarget_WrapNativeImage(MGG_GraphicsDevice* device, void* nativeImage, MGSurfaceFormat format, mgint width, mgint height, MGDepthFormat depthFormat, mgint multiSampleCount);
 
-// Update the native image pointer on an existing wrapped render target.
-// Destroys and recreates image views. Does not touch the depth buffer.
-// Used for swapchain image rotation (e.g. after xrAcquireSwapchainImage).
+// Update the image pointer on an existing render target that wraps a native image.
+// Destroys and recreates image views. Doesn't touch the depth buffer.
+// Used for swapchain image rotation. This is called after xrAcquireSwapchainImage call on OpenXR.
 MG_EXPORT void  MGG_RenderTarget_UpdateNativeImage(MGG_Texture* texture, void* nativeImage, MGG_GraphicsDevice* device);
 
 #pragma endregion OpenXR / Native Interop
