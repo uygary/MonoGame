@@ -13,9 +13,9 @@ return new CakeHost()
         {
             return key =>
             {
-                // Default to 5 minutes.
+                // Default to 2 minutes.
                 // This will hopefully avoid the timeouts caused by the default 100 seconds.
-                var timeout = TimeSpan.FromMinutes(5);
+                var timeout = TimeSpan.FromMinutes(2);
 
                 // Extract override from an environment variable.
                 var timeoutVariable = Environment.GetEnvironmentVariable("HTTPCLIENT_TIMEOUT");
