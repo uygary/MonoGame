@@ -5045,67 +5045,6 @@ MGG_Texture* MGG_RenderTarget_WrapNativeImage(
 	return texture;
 }
 
-void MGG_RenderTarget_UpdateNativeImage(
-	MGG_Texture* texture,
-	void* nativeImage,
-	MGG_GraphicsDevice* device)
-{
-	assert(texture != nullptr);
-	assert(nativeImage != nullptr);
-	assert(device != nullptr);
-	assert(texture->isSwapchain); // Only valid for externally-owned textures
-
-	// Destroy old image views (but NOT the image itself — OpenXR owns it)
-	if (texture->target_view != VK_NULL_HANDLE)
-	{
-		vkDestroyImageView(device->device, texture->target_view, nullptr);
-		texture->target_view = VK_NULL_HANDLE;
-	}
-	if (texture->view != VK_NULL_HANDLE)
-	{
-		vkDestroyImageView(device->device, texture->view, nullptr);
-		texture->view = VK_NULL_HANDLE;
-	}
-
-	// Invalidate any cached framebuffers/render passes that reference this texture.
-	// The old image views we just destroyed are baked into those framebuffers,
-	// so they must be torn down before we create the new views.
-	MGVK_DestroyPipelines(device, [texture](const MGVK_PipelineState& s)
-		{
-			if (!s.targets) { return false; }
-			return	s.targets->set.targets[0] == texture
-				|| s.targets->set.targets[1] == texture
-				|| s.targets->set.targets[2] == texture
-				|| s.targets->set.targets[3] == texture;
-		});
-
-	MGVK_DestroyTargetSets(device, [texture](const MGVK_TargetSetCache* s)
-		{
-			return	s->set.targets[0] == texture
-				|| s->set.targets[1] == texture
-				|| s->set.targets[2] == texture
-				|| s->set.targets[3] == texture;
-		});
-
-	// Update the VkImage pointer
-	texture->image = static_cast<VkImage>(nativeImage);
-
-	// Reset layout — OpenXR swapchain images are in COLOR_ATTACHMENT_OPTIMAL after acquire
-	texture->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	// Recreate image views for the new image
-	texture->view = CreateImageView(device, texture, 1);
-	VK_SET_OBJECT_NAME(device->device, texture->view, VK_OBJECT_TYPE_IMAGE_VIEW,
-		"MGG_Texture.view (XR Update id: %llu)", texture->id);
-	texture->target_view = CreateImageView(device, texture, 1);
-	VK_SET_OBJECT_NAME(device->device, texture->target_view, VK_OBJECT_TYPE_IMAGE_VIEW,
-		"MGG_Texture.target_view (XR Update id: %llu)", texture->id);
-
-	// Force the render pass to be re-created on next draw
-	device->pipelineStateDirty = true;
-	device->renderTargetDirty = true;
-}
-
 static void MGVK_ClampAndValidateTextureRegion(
 	MGG_Texture* texture,
 	mgint level,

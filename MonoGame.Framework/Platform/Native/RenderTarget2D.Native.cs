@@ -70,7 +70,7 @@ public partial class RenderTarget2D
 
         // Use the protected constructor that takes SurfaceType.SwapChainRenderTarget,
         // which skips PlatformConstruct (no native RT creation).
-        var rt = new RenderTarget2D(
+        var renderTarget = new RenderTarget2D(
             graphicsDevice,
             width,
             height,
@@ -81,31 +81,13 @@ public partial class RenderTarget2D
             RenderTargetUsage.DiscardContents,
             SurfaceType.SwapChainRenderTarget);
 
-        // Assign the natively-wrapped handle. Owned = false prevents Dispose from destroying
-        // the OpenXR-owned VkImage. The MGG_Texture struct (views + depth) WILL be cleaned up
-        // since MGG_Texture_Destroy now only skips vmaDestroyImage for null allocations.
-        rt.Handle = handle;
-        rt.Owned = true; // We do own the MGG_Texture* wrapper (views, depth buffer), just not the swapchain image.
+        // Assign the natively-wrapped handle.
+        // Owned = false prevents Dispose from destroying the OpenXR-owned VkImage.
+        // The MGG_Texture struct (views + depth) will be cleaned up since MGG_Texture_Destroy now only skips vmaDestroyImage for null allocations.
+        renderTarget.Handle = handle;
+        renderTarget.Owned = true; // We do own the MGG_Texture* wrapper (views, depth buffer), just not the swap-chain image.
 
-        return rt;
-    }
-
-    /// <summary>
-    /// Updates the native image pointer on a render target previously created with <see cref="FromNativeImage"/>.
-    /// Destroys and recreates the image views.
-    /// Does not touch the depth buffer.
-    /// </summary>
-    /// <remarks>
-    /// This can be used for swap-chain image rotation after a <c>AcquireSwapchainImage</c> call to OpenXR.
-    /// </remarks>
-    /// <param name="newNativeImageHandle">The new native image handle.</param>
-    public unsafe void UpdateNativeImage(nint newNativeImageHandle)
-    {
-        if (Handle == null)
-        {
-            return;
-        }
-
-        MGG.RenderTarget_UpdateNativeImage(Handle, newNativeImageHandle, GraphicsDevice.Handle);
+        return renderTarget;
     }
 }
+

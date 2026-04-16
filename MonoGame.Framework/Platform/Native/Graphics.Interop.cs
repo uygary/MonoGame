@@ -449,10 +449,6 @@ internal static unsafe partial class MGG
 
     #region OpenXR / Native Interop
 
-    // TODO: Can we just move the layout attribute to the actual struct and use it?:
-    // Would int/struct casting be safe across the interop boundary?
-    // Want to avoid unnecessary copy if possible.
-    // But I don't want to tie the public API into the native interop surface and its requirements if we can avoid it.
     [StructLayout(LayoutKind.Sequential)]
     internal struct MGP_NativeGraphicsHandles
     {
@@ -484,12 +480,6 @@ internal static unsafe partial class MGG
         int height,
         DepthFormat depthFormat,
         int multiSampleCount);
-
-    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_RenderTarget_UpdateNativeImage", ExactSpelling = true)]
-    public static extern void RenderTarget_UpdateNativeImage(
-        MGG_Texture* texture,
-        nint nativeImage,
-        MGG_GraphicsDevice* device);
 
     #endregion OpenXR / Native Interop
 }
