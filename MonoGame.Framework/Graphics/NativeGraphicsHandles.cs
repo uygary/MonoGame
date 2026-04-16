@@ -8,7 +8,7 @@ namespace Microsoft.Xna.Framework.Graphics;
 
 /// <summary>
 /// Contains native graphics API handles for XR or other external interop.
-/// <see cref="Device"/> and <see cref="Queue"/> are always populated.
+/// <see cref="PhysicalDevice"/>, <see cref="Device"/> and <see cref="Queue"/> are always populated for the native backends (Vulkan & DX12).
 /// Other fields depend on <see cref="Backend"/>.
 /// </summary>
 public readonly struct NativeGraphicsHandles
@@ -19,44 +19,60 @@ public readonly struct NativeGraphicsHandles
     public readonly GraphicsBackend Backend;
 
     /// <summary>
-    /// Vulkan: <c>VkInstance</c> handle. Other backends: Zero.
+    /// Handle for the session between the application and the graphics API.
     /// </summary>
+    /// <remarks>
+    /// Vulkan: <c>VkInstance</c> handle.
+    /// Others: Zero.
+    /// </remarks>
     public readonly nint Instance;
 
     /// <summary>
-    /// Vulkan: <c>VkPhysicalDevice</c> handle. Other backends: Zero.
+    /// The primary physical adapter handle.
     /// </summary>
+    /// <remarks>
+    /// Vulkan: <c>VkPhysicalDevice</c> handle.
+    /// DX12: <c>IDXGIAdapter1*</c>.
+    /// Others: Zero.
+    /// </remarks>
     public readonly nint PhysicalDevice;
 
     /// <summary>
     /// The primary graphics device handle.
     /// </summary>
     /// <remarks>
-    /// Only native backends are implemented.
-    /// <para>
-    /// For Vulkan, this is <c>VkDevice</c>.
-    /// For DX12, this is <c>ID3D12Device*</c>.
-    /// Other backends: Zero.
-    /// </para>
+    /// Vulkan: <c>VkDevice</c> handle.
+    /// DX12: <c>ID3D12Device*</c>.
+    /// Others: Zero.
     /// </remarks>
     public readonly nint Device;
 
     /// <summary>
     /// The primary graphics queue handle.
-    /// Vulkan: <c>VkQueue</c>. DX12: <c>ID3D12CommandQueue*</c>.
     /// </summary>
+    /// <remarks>
+    /// Vulkan: <c>VkQueue</c> handle.
+    /// DX12: <c>ID3D12CommandQueue*</c>.
+    /// Others: Zero.
+    /// </remarks>
     public readonly nint Queue;
 
     /// <summary>
-    /// Vulkan: queue family index.
-    /// Other backends: Zero.
+    /// Index of the queue family/type.
     /// </summary>
+    /// <remarks>
+    /// Vulkan: queue family index.
+    /// Others: Zero.
+    /// </remarks>
     public readonly int QueueFamilyIndex;
 
     /// <summary>
-    /// Vulkan: queue index within family.
-    /// Other backends: Zero.
+    /// Index of the queue within its family/type.
     /// </summary>
+    /// <remarks>
+    /// Vulkan: queue index within family.
+    /// Others: Zero.
+    /// </remarks>
     public readonly int QueueIndex;
 
     /// <summary>

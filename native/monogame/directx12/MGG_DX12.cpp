@@ -1824,7 +1824,7 @@ MG_EXPORT void MGG_GraphicsDevice_GetNativeHandles(const MGG_GraphicsDevice* dev
 
 	handles->Backend          = MGGraphicsBackend::DirectX12;
 	handles->Instance         = nullptr;
-	handles->PhysicalDevice   = nullptr;
+	handles->PhysicalDevice   = device->resources->GetAdapter();
 	handles->Device           = device->resources->GetD3DDevice();
 	handles->Queue            = device->resources->GetCommandQueue()->Get();
 	handles->QueueFamilyIndex = 0;
