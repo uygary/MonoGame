@@ -1875,20 +1875,4 @@ MGG_Texture* MGG_RenderTarget_WrapNativeImage(
 	return texture;
 }
 
-void MGG_RenderTarget_UpdateNativeImage(
-	MGG_Texture* texture,
-	void* nativeImage,
-	MGG_GraphicsDevice* device)
-{
-	assert(texture != nullptr);
-	assert(nativeImage != nullptr);
-	assert(device != nullptr);
-
-	auto* srcResource = static_cast<ID3D12Resource*>(nativeImage);
-
-	// Use the Texture's public UpdateResource method to swap the resource
-	// and recreate descriptors.
-	texture->texture->UpdateResource(device->resources, srcResource);
-}
-
 #pragma endregion OpenXR / Native Interop

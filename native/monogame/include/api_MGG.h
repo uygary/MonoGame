@@ -96,9 +96,4 @@ MG_EXPORT void  MGG_GraphicsDevice_GetNativeHandles(const MGG_GraphicsDevice* de
 // Creates image views and an optional depth buffer, which is owned by the returned texture.
 MG_EXPORT MGG_Texture* MGG_RenderTarget_WrapNativeImage(MGG_GraphicsDevice* device, void* nativeImage, MGSurfaceFormat format, mgint width, mgint height, MGDepthFormat depthFormat, mgint multiSampleCount);
 
-// Update the image pointer on an existing render target that wraps a native image.
-// Destroys and recreates image views. Doesn't touch the depth buffer.
-// Used for swapchain image rotation. This is called after AcquireSwapchainImage call on OpenXR.
-MG_EXPORT void  MGG_RenderTarget_UpdateNativeImage(MGG_Texture* texture, void* nativeImage, MGG_GraphicsDevice* device);
-
 #pragma endregion OpenXR / Native Interop
