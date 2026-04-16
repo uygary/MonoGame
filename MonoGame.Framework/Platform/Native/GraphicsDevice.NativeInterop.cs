@@ -30,15 +30,14 @@ public partial class GraphicsDevice
     public unsafe NativeGraphicsHandles GetNativeHandles()
     {
         MGG.GraphicsDevice_GetNativeHandles(Handle, out var native);
-        return new NativeGraphicsHandles
-        {
-            Backend          = (GraphicsBackend)native.Backend,
-            Instance         = native.Instance,
-            PhysicalDevice   = native.PhysicalDevice,
-            Device           = native.Device,
-            Queue            = native.Queue,
-            QueueFamilyIndex = native.QueueFamilyIndex,
-            QueueIndex       = native.QueueIndex,
-        };
+
+        return new NativeGraphicsHandles(
+            (GraphicsBackend)native.Backend,
+            native.Instance,
+            native.PhysicalDevice,
+            native.Device,
+            native.Queue,
+            native.QueueFamilyIndex,
+            native.QueueIndex);
     }
 }

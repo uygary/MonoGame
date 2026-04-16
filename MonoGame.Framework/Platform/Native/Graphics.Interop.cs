@@ -452,6 +452,7 @@ internal static unsafe partial class MGG
     // TODO: Can we just move the layout attribute to the actual struct and use it?:
     // Would int/struct casting be safe across the interop boundary?
     // Want to avoid unnecessary copy if possible.
+    // But I don't want to tie the public API into the native interop surface and its requirements if we can avoid it.
     [StructLayout(LayoutKind.Sequential)]
     internal struct MGP_NativeGraphicsHandles
     {
