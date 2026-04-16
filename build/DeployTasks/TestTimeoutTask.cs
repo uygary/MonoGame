@@ -1,7 +1,7 @@
 namespace BuildScripts
 {
     [TaskName("Test HttpClient.Timeout")]
-    public sealed class TestTimeoutTask : AsyncFrostingTask<BuildContext>
+    public sealed class TestTimeoutTask : FrostingTask<BuildContext>
     {
         private static readonly int DefaultTimeoutInSeconds = 100;
         private readonly Func<string, HttpClient> _httpClientFactoryFunction;
@@ -11,7 +11,7 @@ namespace BuildScripts
             _httpClientFactoryFunction = httpClientFactoryFunction;
         }
 
-        public override async Task RunAsync(BuildContext context)
+        public override void Run(BuildContext context)
         {
             var testClient = _httpClientFactoryFunction("HttpClient.Timeout");
 
