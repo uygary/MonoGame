@@ -257,30 +257,6 @@ void Texture::FreeDescriptors(DeviceResources* device) {
     impl->m_dsvHandle = {};
 }
 
-void Texture::UpdateResource(DeviceResources* device, ID3D12Resource* newResource) {
-    FreeDescriptors(device);
-
-    impl->m_res = newResource; // ComPtr handles ref counting
-    impl->m_desc = newResource->GetDesc();
-    impl->m_currentState = D3D12_RESOURCE_STATE_RENDER_TARGET;
-
-    // Recreate SRV descriptor
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = impl->m_desc.Format;
-    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MostDetailedMip = 0;
-    srvDesc.Texture2D.MipLevels = 1;
-    srvDesc.Texture2D.PlaneSlice = 0;
-    impl->m_srvHandle = device->GetGraphicsHeaps()->CreateSRVHandle(newResource, srvDesc);
-
-    // Recreate RTV descriptor
-    D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
-    rtvDesc.Format = impl->m_desc.Format;
-    rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-    impl->m_rtvHandle = device->GetGraphicsHeaps()->CreateRTVHandle(newResource, rtvDesc);
-}
-
 void Texture::SetClearColor(float r, float g, float b, float a) {
     impl->m_clearColor[0] = r;
     impl->m_clearColor[1] = g;
