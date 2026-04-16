@@ -1,5 +1,36 @@
+using System;
+using Cake.Frosting;
+using Cake.Core.Composition;
+using Microsoft.Extensions.DependencyInjection;
+using System.Net.Http;
 
 return new CakeHost()
     .UseWorkingDirectory("../")
     .UseContext<BuildScripts.BuildContext>()
+    .ConfigureServices(services =>
+    {
+        services.AddSingleton<Func<string, HttpClient>>(provider =>
+        {
+            return name =>
+            {
+                // Default to 5 minutes.
+                // This will hopefully avoid the timeouts caused by the default 100 seconds.
+                var timeout = TimeSpan.FromMinutes(5);
+
+                // Extract override from an environment variable.
+                var timeoutVariable = Environment.GetEnvironmentVariable("HTTPCLIENT_TIMEOUT");
+                if (int.TryParse(timeoutVariable, out var timeoutinSeconds) && timeoutinSeconds > 0)
+                {
+                    timeout = TimeSpan.FromSeconds(timeoutinSeconds);
+                }
+
+                var client = new HttpClient()
+                {
+                    Timeout = timeout,
+                };
+
+                return client;
+            };
+        });
+    })
     .Run(args);
