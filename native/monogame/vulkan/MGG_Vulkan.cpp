@@ -5027,22 +5027,42 @@ MGG_Texture* MGG_RenderTarget_WrapNativeImage(
 
 	// Create image views for sampling and rendering
 	texture->view = CreateImageView(device, texture, 1);
-	VK_SET_OBJECT_NAME(device->device, texture->view, VK_OBJECT_TYPE_IMAGE_VIEW,
-		"MGG_Texture.view (XR Wrap id: %llu)", texture->id);
-	texture->target_view = CreateImageView(device, texture, 1);
-	VK_SET_OBJECT_NAME(device->device, texture->target_view, VK_OBJECT_TYPE_IMAGE_VIEW,
-		"MGG_Texture.target_view (XR Wrap id: %llu)", texture->id);
 
-	// Create depth buffer if requested (this we DO own)
+	VK_SET_OBJECT_NAME(device->device,
+		texture->view,
+		VK_OBJECT_TYPE_IMAGE_VIEW,
+		"MGG_Texture.view (XR Wrap id: %llu)",
+		texture->id);
+
+	texture->target_view = CreateImageView(device, texture, 1);
+
+	VK_SET_OBJECT_NAME(device->device,
+		texture->target_view,
+		VK_OBJECT_TYPE_IMAGE_VIEW,
+		"MGG_Texture.target_view (XR Wrap id: %llu)",
+		texture->id);
+
+	// Create depth buffer if requested. (This, we DO own!)
 	if (depthFormat != MGDepthFormat::None)
 	{
 		texture->depthFormat = depthFormat;
 		texture->depthTexture = CreateDepthTexture(device, ToVkFormat(depthFormat), width, height, multiSampleCount);
-		VK_SET_OBJECT_NAME(device->device, texture->depthTexture->image, VK_OBJECT_TYPE_IMAGE,
-			"MGG_Texture.depthTexture.image (for XR Wrap id: %llu)", texture->id);
-		texture->depthTexture->target_view = CreateImageView(device, texture->depthTexture, 1);
-		VK_SET_OBJECT_NAME(device->device, texture->depthTexture->target_view, VK_OBJECT_TYPE_IMAGE_VIEW,
-			"MGG_Texture.depthTexture.target_view (for XR Wrap id: %llu)", texture->id);
+
+		VK_SET_OBJECT_NAME(device->device,
+			texture->depthTexture->image,
+			VK_OBJECT_TYPE_IMAGE,
+			"MGG_Texture.depthTexture.image (for XR Wrap id: %llu)",
+			texture->id);
+
+		texture->depthTexture->target_view = CreateImageView(device,
+			texture->depthTexture,
+			1);
+
+		VK_SET_OBJECT_NAME(device->device,
+			texture->depthTexture->target_view,
+			VK_OBJECT_TYPE_IMAGE_VIEW,
+			"MGG_Texture.depthTexture.target_view (for XR Wrap id: %llu)",
+			texture->id);
 	}
 
 	return texture;

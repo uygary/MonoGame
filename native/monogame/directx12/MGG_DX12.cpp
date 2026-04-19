@@ -1865,7 +1865,7 @@ MGG_Texture* MGG_RenderTarget_WrapNativeImage(
 	// This creates RTV + SRV descriptors without allocating memory for the image itself.
 	texture->texture = new Texture(device->resources, srcResource, format);
 
-	// Create depth buffer if requested (this we DO own)
+	// Create depth buffer if requested. (This, we DO own!)
 	if (depthFormat != MGDepthFormat::None)
 	{
 		texture->depthTexture = new Texture(width, height, depthFormat);
