@@ -589,7 +589,7 @@ CommandContext* Graphics::DeviceResources::GetCommandContext() const {
 
 IDXGIAdapter1* Graphics::DeviceResources::GetAdapter() const {
 #if defined(_GAMING_XBOX)
-    return nullptr;
+    return nullptr; // I assume this is fine.
 #else
     return pImpl->m_adapter.Get();
 #endif

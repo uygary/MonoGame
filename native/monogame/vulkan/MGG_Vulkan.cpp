@@ -4925,7 +4925,7 @@ void MGG_Texture_Destroy(MGG_GraphicsDevice* device, MGG_Texture* texture)
 	if (texture->depthTexture)
 		MGG_Texture_Destroy(device, texture->depthTexture);
 
-	// Is this is an externally owned texture, like an OpenXR swapchain wrapped in a RenderTarget2D.
+	// Is this is an externally owned texture, like an OpenXR swap-chain wrapped in a RenderTarget2D.
 	if (texture->isSwapchain && texture->allocation == VK_NULL_HANDLE)
 	{
 		// We should tear-down its views before the caller (i.e. OpenXR) destroys the underlying VkImages.
@@ -4987,16 +4987,16 @@ MGG_Texture* MGG_RenderTarget_WrapNativeImage(
 
 	auto texture = new MGG_Texture();
 	texture->isTarget = true;
-	texture->isSwapchain = true; // Marks as externally owned — prevents image/memory destruction
+	texture->isSwapchain = true; // Marks as externally owned. This prevents image/memory destruction.
 	texture->type = MGTextureType::_2D;
 	texture->format = format;
 	texture->id = ++device->currentTextureId;
 	texture->multiSampleCount = multiSampleCount;
 	texture->usage = MGRenderTargetUsage::DiscardContents;
 
-	// Set the externally-owned VkImage — we do NOT allocate memory
+	// Set the externally-owned VkImage. We don't allocate memory.
 	texture->image = static_cast<VkImage>(nativeImage);
-	texture->allocation = VK_NULL_HANDLE; // No VMA ownership
+	texture->allocation = VK_NULL_HANDLE; // We don't own the image. Prevents us from trying to free image memory.
 
 	// Populate VkImageCreateInfo for view creation and internal lookups
 	VkImageCreateInfo& create_info = texture->info;
@@ -5011,14 +5011,17 @@ MGG_Texture* MGG_RenderTarget_WrapNativeImage(
 	create_info.arrayLayers = 1;
 	create_info.samples = ToVkSampleCount(multiSampleCount);
 	create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-	create_info.usage = VK_IMAGE_USAGE_SAMPLED_BIT |
-	                    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-	                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-	                    VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+	create_info.usage =
+		VK_IMAGE_USAGE_SAMPLED_BIT
+		| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+		| VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+		| VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
 	create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-	// OpenXR swapchain images are typically in COLOR_ATTACHMENT_OPTIMAL after acquire
+	// OpenXR swap-chain images are typically in COLOR_ATTACHMENT_OPTIMAL when we retrieve them?
 	texture->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	texture->optimal_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 

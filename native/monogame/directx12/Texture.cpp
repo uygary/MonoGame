@@ -97,12 +97,12 @@ Texture::Texture(DeviceResources* device, ID3D12Resource* externalResource, MGSu
     impl = new InternalData();
     impl->m_type = SurfaceType::RenderTarget;
     impl->m_dimension = TextureDimension::Texture2D;
-    // OpenXR swapchain images are in D3D12_RESOURCE_STATE_COMMON
+    // OpenXR swapchain images are in D3D12_RESOURCE_STATE_COMMON?
     // We must set tracking correctly so transitions are emitted when binding as RTV.
     impl->m_currentState = D3D12_RESOURCE_STATE_COMMON;
     impl->m_depthFormat = MGDepthFormat::None;
     impl->m_levels = 1;
-    impl->m_alloc = nullptr; // No D3D12MA allocation — externally owned
+    impl->m_alloc = nullptr; // No D3D12MA allocation. This is externally owned.
 
     impl->m_res = externalResource; // ComPtr will AddRef
     impl->m_desc = externalResource->GetDesc();
@@ -125,8 +125,10 @@ Texture::Texture(DeviceResources* device, ID3D12Resource* externalResource, MGSu
     srvDesc.Texture2D.MipLevels = 1;
     srvDesc.Texture2D.PlaneSlice = 0;
     impl->m_srvHandle = device->GetGraphicsHeaps()->CreateSRVHandle(externalResource, srvDesc);
-
-    // Create RTV descriptor — only if resource has ALLOW_RENDER_TARGET flag
+    
+    // Only if resource has ALLOW_RENDER_TARGET flag.
+	// TODO: When can it not have this flag? Is it possible OpenXR swapchains could be created without it?
+    // Create RTV descriptor.
     if (impl->m_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET) {
         D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
         rtvDesc.Format = viewFormat;

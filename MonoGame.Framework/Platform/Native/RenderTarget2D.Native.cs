@@ -58,7 +58,6 @@ public partial class RenderTarget2D
         int multiSampleCount = 0)
     {
         // Call native layer to create an MGG_Texture that wraps the external image.
-        // This creates VkImageViews (and optionally a depth buffer) without allocating the color image.
         var handle = MGG.RenderTarget_WrapNativeImage(
             graphicsDevice.Handle,
             nativeImageHandle,
@@ -68,8 +67,8 @@ public partial class RenderTarget2D
             depthFormat,
             multiSampleCount);
 
-        // Use the protected constructor that takes SurfaceType.SwapChainRenderTarget,
-        // which skips PlatformConstruct (no native RT creation).
+        // Use the protected constructor that takes SurfaceType.SwapChainRenderTarget.
+        // This skips the PlatformConstruct() call.
         var renderTarget = new RenderTarget2D(
             graphicsDevice,
             width,
@@ -81,11 +80,12 @@ public partial class RenderTarget2D
             RenderTargetUsage.DiscardContents,
             SurfaceType.SwapChainRenderTarget);
 
-        // Assign the natively-wrapped handle.
-        // Owned = false prevents Dispose from destroying the OpenXR-owned VkImage.
-        // The MGG_Texture struct (views + depth) will be cleaned up since MGG_Texture_Destroy now only skips vmaDestroyImage for null allocations.
+        // Assign the handle to the native wrapper for the source image.
+        // We set Owned = true because MonoGame still owns the MGG_Texture* wrapper, including its views and depth buffer,
+        // and needs to manage its lifetime.
+        // MGG_Texture_Destroy will skip the source swap-chain image.
         renderTarget.Handle = handle;
-        renderTarget.Owned = true; // We do own the MGG_Texture* wrapper (views, depth buffer), just not the swap-chain image.
+        renderTarget.Owned = true;
 
         return renderTarget;
     }
