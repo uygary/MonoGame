@@ -235,6 +235,9 @@ jobs:
     name: PackageBinaries
     needs: [ build, pack-native-runtime, tests ]
     runs-on: ubuntu-latest
+    permissions:
+        packages: write
+        contents: write
     steps:
         - name: Clone Repository
           uses: actions/checkout@v5
