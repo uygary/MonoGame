@@ -835,7 +835,7 @@ void MGDX_ApplyState(MGG_GraphicsDevice* device)
 
 			if (i >= device->layout->streamStrides.size())
 			{
-				// Vertex buffer and stream slides are out of sync.
+				// Vertex buffer is out of sync with current layout.
 				// Clean up leftover vertex buffer slot.
 				device->vertexBuffers[i] = nullptr;
 				continue;
