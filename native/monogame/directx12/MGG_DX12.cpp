@@ -1821,3 +1821,74 @@ mgbyte MGG_OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQue
 	pixelCount = value;
 	return true;
 }
+
+#pragma region OpenXR / Native Interop
+
+MG_EXPORT void MGG_GraphicsDevice_SetRequiredExtensions(const char* instanceExtensions, const char* deviceExtensions)
+{
+	// No-op: DX12 does not use extensions.
+	// OpenXR's XR_KHR_D3D12_enable is an OpenXR instance extension,
+	// enabled on the OpenXR end, not on the MonoGame end.
+}
+
+MG_EXPORT void MGG_GraphicsDevice_GetNativeHandles(const MGG_GraphicsDevice* device, MGP_NativeGraphicsHandles* handles)
+{
+	if (!device || !handles)
+	{
+		return;
+	}
+
+	handles->Backend          = MGGraphicsBackend::DirectX12;
+	handles->Instance         = nullptr;
+	handles->PhysicalDevice   = device->resources->GetAdapter();
+	handles->Device           = device->resources->GetD3DDevice();
+	handles->Queue            = device->resources->GetCommandQueue()->Get();
+	handles->QueueFamilyIndex = 0;
+	handles->QueueIndex       = 0;
+}
+
+MGG_Texture* MGG_RenderTarget_WrapNativeImage(
+	MGG_GraphicsDevice* device,
+	void* nativeImage,
+	MGSurfaceFormat format,
+	mgint width,
+	mgint height,
+	MGDepthFormat depthFormat,
+	mgint multiSampleCount)
+{
+	if (!device)
+	{
+		return nullptr;
+	}
+
+	if (!nativeImage)
+	{
+		return nullptr;
+	}
+	if (!device->resources)
+	{
+		return nullptr;
+	}
+
+	auto* srcResource = static_cast<ID3D12Resource*>(nativeImage);
+
+	auto desc = srcResource->GetDesc();
+
+	auto texture = new MGG_Texture();
+	texture->format = format;
+
+	// Create a Texture wrapper around the external resource.
+	// This creates RTV + SRV descriptors without allocating memory for the image itself.
+	texture->texture = new Texture(device->resources, srcResource, format);
+
+	// Create depth buffer if requested. (This, we DO own!)
+	if (depthFormat != MGDepthFormat::None)
+	{
+		texture->depthTexture = new Texture(width, height, depthFormat);
+		texture->depthTexture->Create(device->resources);
+	}
+
+	return texture;
+}
+
+#pragma endregion OpenXR / Native Interop
