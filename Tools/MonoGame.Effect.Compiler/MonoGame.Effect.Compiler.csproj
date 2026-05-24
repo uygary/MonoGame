@@ -13,11 +13,6 @@
     <AssemblyName>mgfxc</AssemblyName>
     <UseAppHost>true</UseAppHost>
   </PropertyGroup>
-  
-  <PropertyGroup Condition="'$(RuntimeIdentifier)' == '' and '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64' and '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true'"> 
-    <!-- The native dependencies (MojoShader, DXC) are not available for Windows ARM64, so force x64 emulation --> 
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier> 
-  </PropertyGroup> 
 
   <ItemGroup>
     <Compile Include="..\..\MonoGame.Framework.Content.Pipeline\ExternalTool.cs" />
