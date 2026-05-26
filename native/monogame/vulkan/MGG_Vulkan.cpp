@@ -2137,7 +2137,7 @@ void MGVK_RecreateSwapChain(
 		texture->image = swapchainImages[i];
 		texture->isSwapchain = texture->isTarget = true;
 		texture->multiSampleCount = multiSampleCount;
-		texture->layout = VK_IMAGE_LAYOUT_UNDEFINED;	// TODO: Is UNDEFINED good enough here?
+		texture->layouts[0] = VK_IMAGE_LAYOUT_UNDEFINED;	// TODO: Is UNDEFINED good enough here?
 		texture->optimal_layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		VK_SET_OBJECT_NAME(device->device, texture->image, VK_OBJECT_TYPE_IMAGE, "MGG_Texture.image (Swapchain %d)", i);
 
@@ -5483,7 +5483,7 @@ MGG_Texture* MGG_RenderTarget_WrapNativeImage(
 	// 12.20. XR_KHR_vulkan_enable:
 	// When an application acquires a swapchain image by calling xrAcquireSwapchainImage in a session created using XrGraphicsBindingVulkanKHR, the OpenXR runtime must guarantee that:
 	// The image has a memory layout compatible with VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL for color images, or VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL for depth images.
-	texture->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	texture->layouts[0] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	texture->optimal_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	// Create image view for shader sampling.

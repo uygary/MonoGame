@@ -120,7 +120,7 @@ Texture::Texture(DeviceResources* device, ID3D12Resource* externalResource, MGSu
         rtvDesc.Format = impl->m_desc.Format;
         rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 
-        impl->m_rtvHandle = device->GetGraphicsHeaps()->CreateRTVHandle(externalResource, rtvDesc);
+        impl->m_rtvHandles.push_back(device->GetGraphicsHeaps()->CreateRTVHandle(externalResource, rtvDesc));
     }
 }
 
