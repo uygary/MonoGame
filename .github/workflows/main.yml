@@ -416,21 +416,36 @@ jobs:
           name: tests-desktopvk-${{ matrix.platform }}
           path: tests-desktopvk
 
-      # Run the DirectX tests in two steps: first the audio, then the rest.
+      # Run the DirectX 11 tests in two steps: first the audio, then the rest.
       # This is because the audio tests has some incompatibilities within the runner with ContentManagerTests.
-      - name: Run DirectX Audio Tests
+      - name: Run DirectX 11 Audio Tests
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
         run: dotnet test --filter Category=Audio MonoGame.Tests.dll 
         env:
           CI: true
         working-directory: tests-windowsdx
         
-      - name: Run DirectX All Tests Except Audio
+      - name: Run DirectX 11 All Tests Except Audio
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
         run: dotnet test --filter Category!=Audio MonoGame.Tests.dll  
         env:
           CI: true
         working-directory: tests-windowsdx
+        
+      # Do the same for DirectX 12 tests.
+      - name: Run DirectX 12 Audio Tests
+        if: runner.os == 'Windows' && runner.environment != 'github-hosted'
+        run: dotnet test --filter Category=Audio MonoGame.Tests.dll 
+        env:
+          CI: true
+        working-directory: tests-windowsdx12
+        
+      - name: Run DirectX 12 All Tests Except Audio
+        if: runner.os == 'Windows' && runner.environment != 'github-hosted'
+        run: dotnet test --filter Category!=Audio MonoGame.Tests.dll  
+        env:
+          CI: true
+        working-directory: tests-windowsdx12
 
       # Run the DesktopGL tests on all platforms using NUnitLite runner not dotnet test
       # We have to run this is bits because the tests crash if too many are run in one go?
