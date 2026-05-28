@@ -420,14 +420,14 @@ jobs:
       # This is because the audio tests has some incompatibilities within the runner with ContentManagerTests.
       - name: Run DirectX 11 Audio Tests
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        run: dotnet test --filter Category=Audio MonoGame.Tests.dll 
+        run: dotnet test --filter Category=Audio MonoGame.Tests.dll
         env:
           CI: true
         working-directory: tests-windowsdx
         
       - name: Run DirectX 11 All Tests Except Audio
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        run: dotnet test --filter Category!=Audio MonoGame.Tests.dll  
+        run: dotnet test --filter Category!=Audio MonoGame.Tests.dll
         env:
           CI: true
         working-directory: tests-windowsdx
@@ -435,14 +435,14 @@ jobs:
       # Do the same for DirectX 12 tests.
       - name: Run DirectX 12 Audio Tests
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        run: dotnet test --filter Category=Audio MonoGame.Tests.dll 
+        run: dotnet test --filter Category=Audio MonoGame.Tests.dll
         env:
           CI: true
         working-directory: tests-windowsdx12
         
       - name: Run DirectX 12 All Tests Except Audio
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        run: dotnet test --filter Category!=Audio MonoGame.Tests.dll  
+        run: dotnet test --filter Category!=Audio MonoGame.Tests.dll
         env:
           CI: true
         working-directory: tests-windowsdx12
@@ -450,7 +450,7 @@ jobs:
       # Run the Vulkan tests.
       - name: Run Vulkan All Tests
         if: runner.environment != 'github-hosted'
-        run: dotnet test
+        run: dotnet test MonoGame.Tests.dll
         env:
           CI: true
         working-directory: tests-desktopvk
