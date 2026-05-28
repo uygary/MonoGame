@@ -69,7 +69,6 @@ public sealed class UploadArtifactsTask : AsyncFrostingTask<BuildContext>
                     await context.GitHubActions().Commands.UploadArtifact(new DirectoryPath($"Artifacts/native/mgpipeline/windows/{winArch}/Release/"), $"mgpipeline-windows-{winArch}.{context.Version}");
                     // DX12 (windowsdx) and Vulkan (desktopvk) native binaries uploaded separately
                     await context.GitHubActions().Commands.UploadArtifact(new DirectoryPath($"Artifacts/native/mgruntime/windowsdx/windows/{winArch}/"), $"mgnative-windows-dx-{winArch}.{context.Version}");
-                    await context.GitHubActions().Commands.UploadArtifact(new DirectoryPath($"Artifacts/native/mgruntime/windowsdx12/windows/{winArch}/"), $"mgnative-windows-dx12-{winArch}.{context.Version}");
                     await context.GitHubActions().Commands.UploadArtifact(new DirectoryPath($"Artifacts/native/mgruntime/desktopvk/windows/{winArch}/"), $"mgnative-windows-vk-{winArch}.{context.Version}");
                 }
                 break;
