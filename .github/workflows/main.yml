@@ -335,29 +335,21 @@ jobs:
           - os: windows${{ needs.choose-runner.outputs.runner }}latest
             platform: windows
             shell: pwsh
-            package-exclusions: |
-              !*linux*
-              !*macos*
+            package-exclusions: '!(tests-*|*linux*|*macos*)'
           - os: macos${{ needs.choose-runner.outputs.runner }}15
             platform: macos
             shell: bash
-            package-exclusions: |
-              !*linux*
-              !*windows*
+            package-exclusions: '!(tests-*|*linux*|*windows*)'
           - os: ubuntu-24.04
             platform: linux
             shell: bash
             filter: --where="Category != Audio"
-            package-exclusions: |
-              !*macos*
-              !*windows*
+            package-exclusions: '!(tests-*|*macos*|*windows*)'
           - os: ubuntu-24.04-arm
             platform: linux
             shell: bash
             filter: --where="Category != Audio"
-            package-exclusions: |
-              !*macos*
-              !*windows*
+            package-exclusions: '!(tests-*|*macos*|*windows*)'
       fail-fast: false
     defaults:
       run:
@@ -400,10 +392,7 @@ jobs:
       - name: Download Nuget
         uses: actions/download-artifact@v4
         with:
-          pattern: |
-            *
-            !tests-*
-            ${{ matrix.package-exclusions }}
+          pattern: ${{ matrix.package-exclusions }}
           path: Artifacts/NuGet
 
       - name: Download tests-desktopgl-${{ matrix.platform }}
