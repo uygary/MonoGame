@@ -1,8 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <RollForward>Major</RollForward>
     <IsPackable>false</IsPackable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -43,7 +43,7 @@
     <None Remove="Framework\WindowsDX\**" />
     <None Remove="obj\**" />
   </ItemGroup>
-
+  
   <PropertyGroup>
     <_LowerCasePlatform>$([MSBuild]::ValueOrDefault('$(Platform)', '').ToLowerInvariant())</_LowerCasePlatform>
     <_OSArchitecture>$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant())</_OSArchitecture>
@@ -60,11 +60,6 @@
     <NativeLib Include="..\Artifacts\native\mgruntime\desktopvk\linux\$(NativePlatform)\$(Configuration)\libmgruntime.so" Condition="Exists('..\Artifacts\native\mgruntime\desktopvk\linux\$(NativePlatform)\$(Configuration)\libmgruntime.so')" PackagePath="runtimes\linux-x64\$(NativePlatform)\native" />
     <NativeLib Include="..\Artifacts\native\mgruntime\desktopvk\macos\$(Configuration)\libmgruntime.dylib" Condition="Exists('..\Artifacts\native\mgruntime\desktopvk\macos\$(Configuration)\libmgruntime.dylib')" PackagePath="runtimes\osx\native" />
   </ItemGroup>
-	
-		<NativeLib Include="..\Artifacts\native\mgruntime\desktopvk\windows\$(NativePlatform)\$(Configuration)\mgruntime.dll" Condition="Exists('..\Artifacts\native\mgruntime\desktopvk\windows\$(NativePlatform)\$(Configuration)\mgruntime.dll')" PackagePath="runtimes\win-$(NativePlatform)\native" />
-	    <NativeLib Include="..\Artifacts\native\mgruntime\desktopvk\linux\$(NativePlatform)\$(Configuration)\libmgruntime.so" Condition="Exists('..\Artifacts\native\mgruntime\desktopvk\linux\$(NativePlatform)\$(Configuration)\libmgruntime.so')" PackagePath="runtimes\linux-$(NativePlatform)\native" />
-	    <NativeLib Include="..\Artifacts\native\mgruntime\desktopvk\macos\$(Configuration)\libmgruntime.dylib" Condition="Exists('..\Artifacts\native\mgruntime\desktopvk\macos\$(Configuration)\libmgruntime.dylib')" PackagePath="runtimes\osx\native" />
-    </ItemGroup>
 	
 	<ItemGroup>
 		<Content Include="@(NativeLib)" Visible="false">
