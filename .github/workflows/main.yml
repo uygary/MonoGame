@@ -442,10 +442,17 @@ jobs:
           CI: true
         working-directory: tests-windowsdx12
 
-      # Run the Vulkan tests.
-      - name: Run Vulkan All Tests
+      # Do the same for Vulkan tests.
+      - name: Run Vulkan Audio Tests
         if: runner.environment != 'github-hosted'
-        run: dotnet test MonoGame.Tests.dll
+        run: dotnet test --filter Category=Audio MonoGame.Tests.dll
+        env:
+          CI: true
+        working-directory: tests-desktopvk
+        
+      - name: Run Vulkan All Tests Except Audio
+        if: runner.environment != 'github-hosted'
+        run: dotnet test --filter Category!=Audio MonoGame.Tests.dll
         env:
           CI: true
         working-directory: tests-desktopvk
