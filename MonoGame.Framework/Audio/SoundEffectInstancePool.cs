@@ -149,6 +149,24 @@ namespace Microsoft.Xna.Framework.Audio
             } // lock (_locker)
         }
 
+        internal static void Shutdown()
+        {
+            lock (_locker)
+            {
+                foreach (var inst in _playingInstances)
+                {
+                    inst.Dispose();
+                }
+                _playingInstances.Clear();
+
+                foreach (var inst in _pooledInstances)
+                {
+                    inst.Dispose();
+                }
+                _pooledInstances.Clear();
+            }
+        }
+
         /// <summary>
         /// Iterates the list of playing instances, stop them and return them to the pool if they are instances of the given SoundEffect.
         /// </summary>
