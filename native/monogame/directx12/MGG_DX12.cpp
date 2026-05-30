@@ -406,6 +406,10 @@ void MGG_GraphicsDevice_Destroy(MGG_GraphicsDevice* device)
 {
 	assert(device != nullptr);
 
+	// Be sure we're done drawing.
+	// Prevents some exceptions while shutting down.
+	device->resources->WaitForGpu();
+
 	MGDX_DestroyFrameResources(device, 0, true);
 
 	if (device->depthTexture)
