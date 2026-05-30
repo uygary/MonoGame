@@ -44,15 +44,17 @@ namespace Microsoft.Xna.Framework.Audio
         /// <param name="inst">The SoundEffectInstance</param>
         internal static void Add(SoundEffectInstance inst)
         {
-            lock (_locker) {
-
-            if (inst._isPooled)
+            lock (_locker)
             {
-                _pooledInstances.Add(inst);
-                inst._effect = null;
-            }
 
-            _playingInstances.Remove(inst);
+                if (inst._isPooled)
+                {
+                    inst.PlatformClearBuffer();
+                    inst._effect = null;
+                    _pooledInstances.Add(inst);
+                }
+
+                _playingInstances.Remove(inst);
 
             } // lock(_locker)
         }
