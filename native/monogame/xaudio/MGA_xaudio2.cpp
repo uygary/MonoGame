@@ -555,6 +555,9 @@ mgint MGA_Voice_GetBufferCount(MGA_Voice* voice)
 {
 	assert(voice != nullptr);
 
+	if (voice->voice == nullptr)
+		return 0;
+
 	XAUDIO2_VOICE_STATE state;
 	voice->voice->GetState(&state, XAUDIO2_VOICE_NOSAMPLESPLAYED);
 	return state.BuffersQueued;
@@ -608,6 +611,9 @@ void MGA_Voice_AppendBuffer(MGA_Voice* voice, mgbyte* buffer, mguint size)
 {
 	assert(voice != nullptr);
 	assert(buffer != nullptr);
+
+	if (voice->voice == nullptr)
+		return;
 
 	// Find a free buffer.
 	MGA_RawBuffer* raw = nullptr;
