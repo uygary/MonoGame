@@ -1,4 +1,4 @@
-﻿// MonoGame - Copyright (C) MonoGame Foundation, Inc
+// MonoGame - Copyright (C) MonoGame Foundation, Inc
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
@@ -878,6 +878,49 @@ namespace MonoGame.Tests.Graphics
             Assert.IsTrue(ib.IsDisposed);
 
             Assert.IsTrue(rtc.IsDisposed);
+        }
+
+        [Test]
+        [RunOnUI]
+        public void WaitForGpuToIdleBeforeDisposingBuffer()
+        {
+            // Repeat many times to catch the racing condition.
+            for (var i = 0; i < 256; i++)
+            {
+                // Create a vertex buffer.
+                var vertexBuffer = new VertexBuffer(
+                    gd,
+                    VertexPositionColor.VertexDeclaration,
+                    3,
+                    BufferUsage.None);
+
+                // Issue GPU commands referencing the buffer.
+                vertexBuffer.SetData(
+                [
+                    new VertexPositionColor(new Vector3(1, 0, 0), Color.Red),
+                    new VertexPositionColor(new Vector3(0, 1, 0), Color.Green),
+                    new VertexPositionColor(new Vector3(0, 0, 1), Color.Blue),
+                ]);
+
+                // Create index buffer.
+                var indexBuffer = new IndexBuffer(
+                    gd,
+                    IndexElementSize.SixteenBits,
+                    3,
+                    BufferUsage.None);
+
+                // Issue GPU commands referencing the buffer.
+                indexBuffer.SetData(new short[] { 0, 1, 2 });
+
+                gd.Clear(Color.Black);
+                gd.Present();
+
+                // Dispose while GPU *might* still be referencing the buffer memory.
+                vertexBuffer.Dispose();
+                indexBuffer.Dispose();
+            }
+
+            Assert.Pass();
         }
     }
 }
