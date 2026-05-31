@@ -495,8 +495,13 @@ jobs:
           cat dx12_memory_lifecycle_test_result.log
           
           # 4. Fail the whole step if ANY of the background tests failed
-          if [ $STATUS1 -ne 0 ] || [ $STATUS2 -ne 0 ] || [ $STATUS3 -ne 0 ] || [ $STATUS4 -ne 0 ]; then
-            echo "One or more tests failed!"
+          FAILED=0
+          if [ $STATUS1 -ne 0 ]; then echo "❌ Audio Tests failed!"; FAILED=1; fi
+          if [ $STATUS2 -ne 0 ]; then echo "❌ GraphicsDevice Tests failed!"; FAILED=1; fi
+          if [ $STATUS3 -ne 0 ]; then echo "❌ MemoryLifeCycle Tests failed!"; FAILED=1; fi
+          if [ $STATUS4 -ne 0 ]; then echo "❌ Remaining Tests failed!"; FAILED=1; fi
+          
+          if [ $FAILED -ne 0 ]; then
             exit 1
           fi
 
@@ -568,8 +573,13 @@ jobs:
           cat vk_memory_lifecycle_test_result.log
           
           # 4. Fail the whole step if ANY of the background tests failed
-          if [ $STATUS1 -ne 0 ] || [ $STATUS2 -ne 0 ] || [ $STATUS3 -ne 0 ] || [ $STATUS4 -ne 0 ]; then
-            echo "One or more tests failed!"
+          FAILED=0
+          if [ $STATUS1 -ne 0 ]; then echo "❌ Audio Tests failed!"; FAILED=1; fi
+          if [ $STATUS2 -ne 0 ]; then echo "❌ GraphicsDevice Tests failed!"; FAILED=1; fi
+          if [ $STATUS3 -ne 0 ]; then echo "❌ MemoryLifeCycle Tests failed!"; FAILED=1; fi
+          if [ $STATUS4 -ne 0 ]; then echo "❌ Remaining Tests failed!"; FAILED=1; fi
+          
+          if [ $FAILED -ne 0 ]; then
             exit 1
           fi
 
