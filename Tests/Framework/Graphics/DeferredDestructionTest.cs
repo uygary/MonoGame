@@ -2,17 +2,11 @@
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
-using System;
-using System.Linq;
-using System.Runtime.InteropServices;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Interop;
 using NUnit.Framework;
-#if DESKTOPGL
-using MonoGame.OpenGL;
-#endif
+using System.Runtime.InteropServices;
 
 namespace MonoGame.Tests.Graphics
 {
@@ -28,23 +22,6 @@ namespace MonoGame.Tests.Graphics
         private unsafe int GetDestroyQueueSize(GraphicsDevice device)
         {
             return GetPendingDestroyCount(device.Handle);
-        }
-
-        /// <summary>
-        /// USed to retrieve the frame field from a texture.
-        /// MGG_Texture layout is different in Vulkan and DX12.
-        /// </summary>
-        /// <remarks>If either layout changes, this would need to be updtaed!</remarks>
-        private unsafe int GetTextureFrame(Texture2D texture)
-        {
-            var textureHandle = (uint*)texture.Handle;
-#if VULKAN
-            return (int)textureHandle[1]; // skip writeFrame
-#elif DIRECTX12
-            return (int)textureHandle[0];
-#else
-            throw new NotImplementedException($"{nameof(GetTextureFrame)} is not implemented for this platform.");
-#endif
         }
 
         #endregion Native Helpers
