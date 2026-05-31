@@ -472,32 +472,45 @@ jobs:
           Write-Host "======== Running all tests except Audio, GraphicsDevice, MemoryLifeCycle ========"
           $proc4 = Start-Process dotnet -ArgumentList "test --filter `"Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle`" --blame-hang-timeout 5m MonoGame.Tests.dll" -PassThru -NoNewWindow -Wait
           $Status4 = $proc4.ExitCode
+          if ($Status4 -ne 0) { Write-Host "❌ Remaining Tests failed!"; $Failed=1 }
+          else                { Write-Host "☑️ Remaining Tests passed!" }
           
           # 3. Wait for each background processes to finish and print results
           Wait-Process -InputObject $proc1
           $Status1 = $proc1.ExitCode
-          Write-Host "======== Audio Tests ========"
+          Write-Host "`n======== Audio Tests ========"
           if (Test-Path dx12_audio.log) { Get-Content dx12_audio.log -Raw }
           if (Test-Path dx12_audio.err) { Get-Content dx12_audio.err -Raw }
+          if ($Status1 -ne 0) { Write-Host "❌ Audio Tests failed!"; $Failed=1 }
+          else                { Write-Host "☑️ Audio Tests passed!" }
           
           Wait-Process -InputObject $proc2
           $Status2 = $proc2.ExitCode
           Write-Host "`n======== GraphicsDevice Tests ========"
           if (Test-Path dx12_graphics_device.log) { Get-Content dx12_graphics_device.log -Raw }
           if (Test-Path dx12_graphics_device.err) { Get-Content dx12_graphics_device.err -Raw }
+          if ($Status2 -ne 0) { Write-Host "❌ GraphicsDevice Tests failed!"; $Failed=1 }
+          else                { Write-Host "☑️ GraphicsDevice Tests passed!" }
           
           Wait-Process -InputObject $proc3
           $Status3 = $proc3.ExitCode
           Write-Host "`n======== MemoryLifeCycle Tests ========"
           if (Test-Path dx12_memory_lifecycle.log) { Get-Content dx12_memory_lifecycle.log -Raw }
           if (Test-Path dx12_memory_lifecycle.err) { Get-Content dx12_memory_lifecycle.err -Raw }
+          if ($Status3 -ne 0) { Write-Host "❌ MemoryLifeCycle Tests failed!"; $Failed=1 }
+          else                { Write-Host "☑️ MemoryLifeCycle Tests passed!" }
           
           # 4. Fail the whole step if ANY of the test suites failed
           $Failed = 0
+          Write-Host "`n`n======== Final Results ========"
           if ($Status1 -ne 0) { Write-Host "❌ Audio Tests failed!"; $Failed=1 }
+          else                { Write-Host "✅ Audio Tests passed!" }
           if ($Status2 -ne 0) { Write-Host "❌ GraphicsDevice Tests failed!"; $Failed=1 }
+          else                { Write-Host "✅ GraphicsDevice Tests passed!" }
           if ($Status3 -ne 0) { Write-Host "❌ MemoryLifeCycle Tests failed!"; $Failed=1 }
+          else                { Write-Host "✅ MemoryLifeCycle Tests passed!" }
           if ($Status4 -ne 0) { Write-Host "❌ Remaining Tests failed!"; $Failed=1 }
+          else                { Write-Host "✅ Remaining Tests passed!" }
           
           if ($Failed -ne 0) { exit 1 }
 
@@ -546,32 +559,45 @@ jobs:
           Write-Host "======== Running all tests except Audio, GraphicsDevice, MemoryLifeCycle ========"
           $proc4 = Start-Process dotnet -ArgumentList "test --filter `"Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle`" --blame-hang-timeout 5m MonoGame.Tests.dll" -PassThru -NoNewWindow -Wait
           $Status4 = $proc4.ExitCode
+          if ($Status4 -ne 0) { Write-Host "❌ Remaining Tests failed!"; $Failed=1 }
+          else                { Write-Host "☑️ Remaining Tests passed!" }
           
           # 3. Wait for each background processes to finish and print results
           Wait-Process -InputObject $proc1
           $Status1 = $proc1.ExitCode
-          Write-Host "======== Audio Tests ========"
+          Write-Host "`n======== Audio Tests ========"
           if (Test-Path vk_audio.log) { Get-Content vk_audio.log -Raw }
           if (Test-Path vk_audio.err) { Get-Content vk_audio.err -Raw }
+          if ($Status1 -ne 0) { Write-Host "❌ Audio Tests failed!"; $Failed=1 }
+          else                { Write-Host "☑️ Audio Tests passed!" }
           
           Wait-Process -InputObject $proc2
           $Status2 = $proc2.ExitCode
           Write-Host "`n======== GraphicsDevice Tests ========"
           if (Test-Path vk_graphics_device.log) { Get-Content vk_graphics_device.log -Raw }
           if (Test-Path vk_graphics_device.err) { Get-Content vk_graphics_device.err -Raw }
+          if ($Status2 -ne 0) { Write-Host "❌ GraphicsDevice Tests failed!"; $Failed=1 }
+          else                { Write-Host "☑️ GraphicsDevice Tests passed!" }
           
           Wait-Process -InputObject $proc3
           $Status3 = $proc3.ExitCode
           Write-Host "`n======== MemoryLifeCycle Tests ========"
           if (Test-Path vk_memory_lifecycle.log) { Get-Content vk_memory_lifecycle.log -Raw }
           if (Test-Path vk_memory_lifecycle.err) { Get-Content vk_memory_lifecycle.err -Raw }
+          if ($Status3 -ne 0) { Write-Host "❌ MemoryLifeCycle Tests failed!"; $Failed=1 }
+          else                { Write-Host "☑️ MemoryLifeCycle Tests passed!" }
           
           # 4. Fail the whole step if ANY of the test suites failed
           $Failed = 0
+          Write-Host "`n`n======== Final Results ========"
           if ($Status1 -ne 0) { Write-Host "❌ Audio Tests failed!"; $Failed=1 }
+          else                { Write-Host "✅ Audio Tests passed!" }
           if ($Status2 -ne 0) { Write-Host "❌ GraphicsDevice Tests failed!"; $Failed=1 }
+          else                { Write-Host "✅ GraphicsDevice Tests passed!" }
           if ($Status3 -ne 0) { Write-Host "❌ MemoryLifeCycle Tests failed!"; $Failed=1 }
+          else                { Write-Host "✅ MemoryLifeCycle Tests passed!" }
           if ($Status4 -ne 0) { Write-Host "❌ Remaining Tests failed!"; $Failed=1 }
+          else                { Write-Host "✅ Remaining Tests passed!" }
           
           if ($Failed -ne 0) { exit 1 }
 
@@ -595,6 +621,7 @@ jobs:
           echo "======== Running all tests except Audio, GraphicsDevice, MemoryLifeCycle ========"
           dotnet test --filter "Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll
           STATUS4=$?
+          if [ $STATUS4 -ne 0 ]; then echo "❌ Remaining Tests failed!"; else echo "☑️ Remaining Tests passed!"; fi
           
           # 3. Wait for each background processes to finish and print results
           STATUS1=0; STATUS2=0; STATUS3=0
@@ -602,21 +629,25 @@ jobs:
           wait $PID1 || STATUS1=$?
           echo "======== Audio Tests ========"
           cat vk_audio_test_result.log
+          if [ $STATUS1 -ne 0 ]; then echo "❌ Audio Tests failed!"; else echo "☑️ Audio Tests passed!"; fi
 
           wait $PID2 || STATUS2=$?
           echo -e "\n======== GraphicsDevice Tests ========"
           cat vk_graphics_device_test_result.log
+          if [ $STATUS2 -ne 0 ]; then echo "❌ GraphicsDevice Tests failed!"; else echo "☑️ GraphicsDevice Tests passed!"; fi
 
           wait $PID3 || STATUS3=$?
           echo -e "\n======== MemoryLifeCycle Tests ========"
           cat vk_memory_lifecycle_test_result.log
+          if [ $STATUS3 -ne 0 ]; then echo "❌ MemoryLifeCycle Tests failed!"; else echo "☑️ MemoryLifeCycle Tests passed!"; fi
           
           # 4. Fail the whole step if ANY of the test suites failed
           FAILED=0
-          if [ $STATUS1 -ne 0 ]; then echo "❌ Audio Tests failed!"; FAILED=1; fi
-          if [ $STATUS2 -ne 0 ]; then echo "❌ GraphicsDevice Tests failed!"; FAILED=1; fi
-          if [ $STATUS3 -ne 0 ]; then echo "❌ MemoryLifeCycle Tests failed!"; FAILED=1; fi
-          if [ $STATUS4 -ne 0 ]; then echo "❌ Remaining Tests failed!"; FAILED=1; fi
+          echo -e "\n\n======== Final Results ========"
+          if [ $STATUS1 -ne 0 ]; then echo "❌ Audio Tests failed!"; FAILED=1; else echo "✅ Audio Tests passed!"; fi
+          if [ $STATUS2 -ne 0 ]; then echo "❌ GraphicsDevice Tests failed!"; FAILED=1; else echo "✅ GraphicsDevice Tests passed!"; fi
+          if [ $STATUS3 -ne 0 ]; then echo "❌ MemoryLifeCycle Tests failed!"; FAILED=1; else echo "✅ MemoryLifeCycle Tests passed!"; fi
+          if [ $STATUS4 -ne 0 ]; then echo "❌ Remaining Tests failed!"; FAILED=1; else echo "✅ Remaining Tests passed!"; fi
           
           if [ $FAILED -ne 0 ]; then
             exit 1
