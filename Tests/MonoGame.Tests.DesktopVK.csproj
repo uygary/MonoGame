@@ -57,7 +57,7 @@
     <ProjectReference Include="..\MonoGame.Framework\MonoGame.Framework.Native.csproj" />
 
     <NativeLib Include="..\Artifacts\native\mgruntime\desktopvk\windows\$(NativePlatform)\$(Configuration)\mgruntime.dll" Condition="Exists('..\Artifacts\native\mgruntime\desktopvk\windows\$(NativePlatform)\$(Configuration)\mgruntime.dll')" PackagePath="runtimes\win-$(NativePlatform)\native" />
-    <NativeLib Include="..\Artifacts\native\mgruntime\desktopvk\linux\$(NativePlatform)\$(Configuration)\libmgruntime.so" Condition="Exists('..\Artifacts\native\mgruntime\desktopvk\linux\$(NativePlatform)\$(Configuration)\libmgruntime.so')" PackagePath="runtimes\linux-$(NativePlatform)\$(NativePlatform)\native" />
+    <NativeLib Include="..\Artifacts\native\mgruntime\desktopvk\linux\$(NativePlatform)\$(Configuration)\libmgruntime.so" Condition="Exists('..\Artifacts\native\mgruntime\desktopvk\linux\$(NativePlatform)\$(Configuration)\libmgruntime.so')" PackagePath="runtimes\linux-$(NativePlatform)\native" />
     <NativeLib Include="..\Artifacts\native\mgruntime\desktopvk\macosx\$(Configuration)\libmgruntime.dylib" Condition="Exists('..\Artifacts\native\mgruntime\desktopvk\macosx\$(Configuration)\libmgruntime.dylib')" PackagePath="runtimes\osx\native" />
   </ItemGroup>
 	
