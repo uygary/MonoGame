@@ -5541,3 +5541,20 @@ mgbyte MGG_OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQue
 		return false; // Return false indicating the result is not available.
 	}
 }
+
+mgint MGG_GraphicsDevice_GetPendingDestroyCount(const MGG_GraphicsDevice* device)
+{
+	if (!device)
+	{
+		return -1;
+	}
+
+	// TODO: Check if there are more queues we need to include.
+	return static_cast<mgint>(
+		device->destroyTextures.size()
+		+ device->destroyBuffers.size()
+		+ device->destroyBlendStates.size()
+		+ device->destroyRasterizerStates.size()
+		+ device->destroyDepthStencilStates.size()
+		+ device->destroySamplers.size());
+}

@@ -4,9 +4,11 @@
 
 using System;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
+using MonoGame.Interop;
 using NUnit.Framework;
 #if DESKTOPGL
 using MonoGame.OpenGL;
@@ -927,53 +929,6 @@ namespace MonoGame.Tests.Graphics
 
         [Test]
         [RunOnUI]
-#if VULKAN
-        [Ignore("Vulkan backend doesn't support creating multiple GraphicsDevice instances.")]
-#endif
-        public void DisposeAfterRenderTargetPresented()
-        {
-            var testGame = new TestGameBase()
-            {
-                IsFixedTimeStep = false,
-            };
-            new GraphicsDeviceManager(testGame)
-            {
-                GraphicsProfile = GraphicsProfile.HiDef,
-            };
-            var graphicsDeviceManager = testGame.Services.GetService<IGraphicsDeviceManager>();
-            graphicsDeviceManager.CreateDevice();
-            var graphicsDevice = testGame.GraphicsDevice;
-
-            // Create RenderTargets to be put on deferred destruction queues.
-            var renderTarget1 = new RenderTarget2D(graphicsDevice, 4096, 4096);
-            var renderTaraget2 = new RenderTarget2D(
-                graphicsDevice,
-                4096,
-                4096,
-                false,
-                SurfaceFormat.Color,
-                DepthFormat.Depth24);
-
-            // Issue GPU commands on renderTarget1.
-            graphicsDevice.SetRenderTarget(renderTarget1);
-            graphicsDevice.Clear(Color.Red);
-            graphicsDevice.SetRenderTarget(null);
-            graphicsDevice.Present();
-
-            // Issue GPU commands on renderTaraget2.
-            graphicsDevice.SetRenderTarget(renderTaraget2);
-            graphicsDevice.Clear(Color.Blue);
-            graphicsDevice.SetRenderTarget(null);
-            graphicsDevice.Present();
-
-            // Dispose resources and the game immediately.
-            renderTarget1.Dispose();
-            renderTaraget2.Dispose();
-            testGame.Dispose();
-        }
-
-        [Test]
-        [RunOnUI]
         public void WaitForGpuToIdleBeforeDisposingRenderTarget()
         {
             for (var i = 0; i < 100; i++)
@@ -1014,6 +969,7 @@ namespace MonoGame.Tests.Graphics
             // Read RenderTarget texture to verify the texture frame was updated.
             var data = new Color[128 * 128];
             rt.GetData(data);
+            
             Assert.AreEqual(
                 Color.MonoGameOrange,
                 data[0],
@@ -1050,6 +1006,7 @@ namespace MonoGame.Tests.Graphics
             // Read RenderTarget texture to verify the texture frame was updated.
             var data = new Color[128 * 128];
             renderTarget.GetData(data);
+            
             Assert.AreEqual(
                 Color.MonoGameOrange,
                 data[0],
@@ -1089,6 +1046,115 @@ namespace MonoGame.Tests.Graphics
             renderTarget1.Dispose();
 
             Assert.Pass();
+        }
+
+        #region Native Helpers
+
+        [DllImport("mgruntime", EntryPoint = "MGG_GraphicsDevice_GetPendingDestroyCount", ExactSpelling = true)]
+        private static extern unsafe int GetPendingDestroyCount(MGG_GraphicsDevice* device);
+
+        private unsafe int GetDestroyQueueSize(GraphicsDevice device)
+        {
+            return GetPendingDestroyCount(device.Handle);
+        }
+
+        /// <summary>
+        /// USed to retrieve the frame field from a texture.
+        /// MGG_Texture layout is different in Vulkan and DX12.
+        /// </summary>
+        /// <remarks>If either layout changes, this would need to be updtaed!</remarks>
+        private unsafe int GetTextureFrame(Texture2D texture)
+        {
+            var textureHandle = (uint*)texture.Handle;
+#if VULKAN
+            return (int)textureHandle[1]; // skip writeFrame
+#elif DIRECTX12
+            return (int)textureHandle[0];
+#else
+            throw new NotImplementedException($"{nameof(GetTextureFrame)} is not implemented for this platform.");
+#endif
+        }
+
+        #endregion Native Helpers
+
+        [Test]
+        [RunOnUI]
+        public void SetRenderTargetUpdatesTextureFrame()
+        {
+            var renderTarger = new RenderTarget2D(gd, 64, 64);
+            var frameZero = GetTextureFrame(renderTarger);
+
+            // Advance 10 frames past creation.
+            for (int i = 0; i < 10; i++)
+            {
+                gd.Clear(Color.Black);
+                gd.Present();
+            }
+
+            var frameBeforeBind = GetTextureFrame(renderTarger);
+
+            // Frame shouldn't bump unless render target's bound.
+            Assert.AreEqual(frameZero,
+                frameBeforeBind,
+                $"Texture frame should not change in unbound {nameof(RenderTarget2D)}.");
+
+            // Update texture framee.
+            gd.SetRenderTarget(renderTarger);
+            gd.Clear(Color.Red);
+            var frameAfterBind = GetTextureFrame(renderTarger);
+
+            gd.SetRenderTarget(null);
+            gd.Present();
+
+            // Frame should bump since render target was bound.
+            Assert.Greater(frameAfterBind,
+                frameBeforeBind,
+                $"Texture frame should change in bound {nameof(RenderTarget2D)}.");
+
+            renderTarger.Dispose();
+        }
+
+        [Test]
+        [RunOnUI]
+        public void RenderTargetDisposalAfterBindDefersDestruction()
+        {
+            var renderTarget = new RenderTarget2D(
+                gd,
+                64,
+                64,
+                false,
+                SurfaceFormat.Color,
+                DepthFormat.Depth24Stencil8);
+
+            // Go past kFreeFrames threshold.
+            for (var i = 0; i < 10; i++)
+            {
+                gd.Clear(Color.Black);
+                gd.Present();
+            }
+
+            gd.SetRenderTarget(renderTarget);
+            gd.Clear(Color.Red);
+            gd.SetRenderTarget(null);
+
+            var baselineDsetroyQueueSize = GetDestroyQueueSize(gd);
+
+            renderTarget.Dispose();
+            var destroyQueueSizeAfterDisposal = GetDestroyQueueSize(gd);
+            
+            Assert.Greater(destroyQueueSizeAfterDisposal,
+                baselineDsetroyQueueSize,
+                $"Disposed {nameof(RenderTarget2D)} should enter destroy queue.");
+
+            gd.Clear(Color.Black);
+            gd.Present();
+
+            // This actually seems to crash, but still, the test is useful.
+            var destroyQueueSizeAfterPresentation = GetDestroyQueueSize(gd);
+
+            Assert.AreEqual(destroyQueueSizeAfterDisposal,
+                destroyQueueSizeAfterPresentation,
+                "underlying texture was prematurely destroyed.");
         }
 
 #endregion Deferred Destruction Tests

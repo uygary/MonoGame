@@ -1993,3 +1993,17 @@ mgbyte MGG_OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQue
 
 	return true;
 }
+
+mgint MGG_GraphicsDevice_GetPendingDestroyCount(const MGG_GraphicsDevice* device)
+{
+	if (!device)
+	{
+		return -1;
+	}
+
+	// TODO: Check if there are more queues we need to include.
+	return static_cast<mgint>(
+		device->destroyTextures.size()
+		+ device->destroyBuffers.size()
+		+ device->destroyQuery.size());
+}
