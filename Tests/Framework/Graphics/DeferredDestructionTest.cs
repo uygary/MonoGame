@@ -14,6 +14,8 @@ namespace MonoGame.Tests.Graphics
     [NonParallelizable]
     internal class DeferredDestructionTest
     {
+#if VULKAN || DIRECTX12
+        
         #region Native Helpers
 
         [DllImport("mgruntime", EntryPoint = "MGG_GraphicsDevice_GetPendingDestroyCount", ExactSpelling = true)]
@@ -127,5 +129,7 @@ namespace MonoGame.Tests.Graphics
             renderTarget.Dispose();
             testGame.Dispose();
         }
+        
+#endif
     }
 }
