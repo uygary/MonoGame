@@ -460,50 +460,46 @@ jobs:
       - name: Run DirectX 12 Tests (Parallel)
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
         working-directory: tests-windowsdx12
-        shell: bash
         env:
           CI: true
         run: |
           # 1. Run tests in background and redirect output to files
-          dotnet test --filter Category=Audio --blame-hang-timeout 5m MonoGame.Tests.dll > dx12_audio_test_result.log 2>&1 &
-          PID1=$!
-          
-          dotnet test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll > dx12_graphics_device_test_result.log 2>&1 &
-          PID2=$!
-          
-          dotnet test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll > dx12_memory_lifecycle_test_result.log 2>&1 &
-          PID3=$!
+          $proc1 = Start-Process dotnet -ArgumentList "test --filter Category=Audio --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_audio.log" -RedirectStandardError "dx12_audio.err" -PassThru -NoNewWindow
+          $proc2 = Start-Process dotnet -ArgumentList "test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_graphics_device.log" -RedirectStandardError "dx12_graphics_device.err" -PassThru -NoNewWindow
+          $proc3 = Start-Process dotnet -ArgumentList "test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_memory_lifecycle.log" -RedirectStandardError "dx12_memory_lifecycle.err" -PassThru -NoNewWindow
           
           # 2. Run the last test suite in foreground
-          echo "======== Running all tests except Audio, GraphicsDevice, MemoryLifeCycle ========"
-          dotnet test --filter "Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll
-          STATUS4=$?
-
-          # 3. Wait for ech background processes to finish and print results
-          STATUS1=0; STATUS2=0; STATUS3=0
+          Write-Host "======== Running all tests except Audio, GraphicsDevice, MemoryLifeCycle ========"
+          $proc4 = Start-Process dotnet -ArgumentList "test --filter `"Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle`" --blame-hang-timeout 5m MonoGame.Tests.dll" -PassThru -NoNewWindow -Wait
+          $Status4 = $proc4.ExitCode
           
-          wait $PID1 || STATUS1=$?
-          echo "======== Audio Tests ========"
-          cat dx12_audio_test_result.log
-
-          wait $PID2 || STATUS2=$?
-          echo -e "\n======== GraphicsDevice Tests ========"
-          cat dx12_graphics_device_test_result.log
-
-          wait $PID3 || STATUS3=$?
-          echo -e "\n======== MemoryLifeCycle Tests ========"
-          cat dx12_memory_lifecycle_test_result.log
+          # 3. Wait for each background processes to finish and print results
+          Wait-Process -InputObject $proc1
+          $Status1 = $proc1.ExitCode
+          Write-Host "======== Audio Tests ========"
+          if (Test-Path dx12_audio.log) { Get-Content dx12_audio.log -Raw }
+          if (Test-Path dx12_audio.err) { Get-Content dx12_audio.err -Raw }
           
-          # 4. Fail the whole step if ANY of the background tests failed
-          FAILED=0
-          if [ $STATUS1 -ne 0 ]; then echo "❌ Audio Tests failed!"; FAILED=1; fi
-          if [ $STATUS2 -ne 0 ]; then echo "❌ GraphicsDevice Tests failed!"; FAILED=1; fi
-          if [ $STATUS3 -ne 0 ]; then echo "❌ MemoryLifeCycle Tests failed!"; FAILED=1; fi
-          if [ $STATUS4 -ne 0 ]; then echo "❌ Remaining Tests failed!"; FAILED=1; fi
+          Wait-Process -InputObject $proc2
+          $Status2 = $proc2.ExitCode
+          Write-Host "`n======== GraphicsDevice Tests ========"
+          if (Test-Path dx12_graphics_device.log) { Get-Content dx12_graphics_device.log -Raw }
+          if (Test-Path dx12_graphics_device.err) { Get-Content dx12_graphics_device.err -Raw }
           
-          if [ $FAILED -ne 0 ]; then
-            exit 1
-          fi
+          Wait-Process -InputObject $proc3
+          $Status3 = $proc3.ExitCode
+          Write-Host "`n======== MemoryLifeCycle Tests ========"
+          if (Test-Path dx12_memory_lifecycle.log) { Get-Content dx12_memory_lifecycle.log -Raw }
+          if (Test-Path dx12_memory_lifecycle.err) { Get-Content dx12_memory_lifecycle.err -Raw }
+          
+          # 4. Fail the whole step if ANY of the test suites failed
+          $Failed = 0
+          if ($Status1 -ne 0) { Write-Host "❌ Audio Tests failed!"; $Failed=1 }
+          if ($Status2 -ne 0) { Write-Host "❌ GraphicsDevice Tests failed!"; $Failed=1 }
+          if ($Status3 -ne 0) { Write-Host "❌ MemoryLifeCycle Tests failed!"; $Failed=1 }
+          if ($Status4 -ne 0) { Write-Host "❌ Remaining Tests failed!"; $Failed=1 }
+          
+          if ($Failed -ne 0) { exit 1 }
 
       ## Run Vulkan tests in separate groups.
       #- name: Run Vulkan Audio Tests
@@ -535,10 +531,53 @@ jobs:
       #  working-directory: tests-desktopvk
 
       # Run Vulkan tests in parallel
-      - name: Run Vulkan Tests (Parallel)
-        if: runner.environment != 'github-hosted'
+      - name: Run Vulkan Tests (Parallel - Windows)
+        if: runner.os == 'Windows' && runner.environment != 'github-hosted'
         working-directory: tests-desktopvk
-        shell: bash
+        env:
+          CI: true
+        run: |
+          # 1. Run tests in background and redirect output to files
+          $proc1 = Start-Process dotnet -ArgumentList "test --filter Category=Audio --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "vk_audio.log" -RedirectStandardError "vk_audio.err" -PassThru -NoNewWindow
+          $proc2 = Start-Process dotnet -ArgumentList "test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "vk_graphics_device.log" -RedirectStandardError "vk_graphics_device.err" -PassThru -NoNewWindow
+          $proc3 = Start-Process dotnet -ArgumentList "test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "vk_memory_lifecycle.log" -RedirectStandardError "vk_memory_lifecycle.err" -PassThru -NoNewWindow
+          
+          # 2. Run the last test suite in foreground
+          Write-Host "======== Running all tests except Audio, GraphicsDevice, MemoryLifeCycle ========"
+          $proc4 = Start-Process dotnet -ArgumentList "test --filter `"Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle`" --blame-hang-timeout 5m MonoGame.Tests.dll" -PassThru -NoNewWindow -Wait
+          $Status4 = $proc4.ExitCode
+          
+          # 3. Wait for each background processes to finish and print results
+          Wait-Process -InputObject $proc1
+          $Status1 = $proc1.ExitCode
+          Write-Host "======== Audio Tests ========"
+          if (Test-Path vk_audio.log) { Get-Content vk_audio.log -Raw }
+          if (Test-Path vk_audio.err) { Get-Content vk_audio.err -Raw }
+          
+          Wait-Process -InputObject $proc2
+          $Status2 = $proc2.ExitCode
+          Write-Host "`n======== GraphicsDevice Tests ========"
+          if (Test-Path vk_graphics_device.log) { Get-Content vk_graphics_device.log -Raw }
+          if (Test-Path vk_graphics_device.err) { Get-Content vk_graphics_device.err -Raw }
+          
+          Wait-Process -InputObject $proc3
+          $Status3 = $proc3.ExitCode
+          Write-Host "`n======== MemoryLifeCycle Tests ========"
+          if (Test-Path vk_memory_lifecycle.log) { Get-Content vk_memory_lifecycle.log -Raw }
+          if (Test-Path vk_memory_lifecycle.err) { Get-Content vk_memory_lifecycle.err -Raw }
+          
+          # 4. Fail the whole step if ANY of the test suites failed
+          $Failed = 0
+          if ($Status1 -ne 0) { Write-Host "❌ Audio Tests failed!"; $Failed=1 }
+          if ($Status2 -ne 0) { Write-Host "❌ GraphicsDevice Tests failed!"; $Failed=1 }
+          if ($Status3 -ne 0) { Write-Host "❌ MemoryLifeCycle Tests failed!"; $Failed=1 }
+          if ($Status4 -ne 0) { Write-Host "❌ Remaining Tests failed!"; $Failed=1 }
+          
+          if ($Failed -ne 0) { exit 1 }
+
+      - name: Run Vulkan Tests (Parallel - Linux/macOS)
+        if: runner.os != 'Windows' && runner.environment != 'github-hosted'
+        working-directory: tests-desktopvk
         env:
           CI: true
         run: |
@@ -557,7 +596,7 @@ jobs:
           dotnet test --filter "Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll
           STATUS4=$?
           
-          # 3. Wait for ech background processes to finish and print results
+          # 3. Wait for each background processes to finish and print results
           STATUS1=0; STATUS2=0; STATUS3=0
           
           wait $PID1 || STATUS1=$?
@@ -572,7 +611,7 @@ jobs:
           echo -e "\n======== MemoryLifeCycle Tests ========"
           cat vk_memory_lifecycle_test_result.log
           
-          # 4. Fail the whole step if ANY of the background tests failed
+          # 4. Fail the whole step if ANY of the test suites failed
           FAILED=0
           if [ $STATUS1 -ne 0 ]; then echo "❌ Audio Tests failed!"; FAILED=1; fi
           if [ $STATUS2 -ne 0 ]; then echo "❌ GraphicsDevice Tests failed!"; FAILED=1; fi
