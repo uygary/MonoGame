@@ -550,7 +550,7 @@ static void MGDX_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 		{
 			auto buffer = device->destroyBuffers.front();
 			mgint diff = currentFrame - buffer->frame;
-			if (!free_all && diff < kFreeFrames || (0xFFFF - diff) < kFreeFrames)
+			if (!free_all && diff < kFreeFrames)
 				break;
 
 			device->destroyBuffers.pop();
@@ -562,7 +562,7 @@ static void MGDX_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 		{
 			auto texture = device->destroyTextures.front();
 			mgint diff = currentFrame - texture->frame;
-			if (!free_all && diff < kFreeFrames || (0xFFFF - diff) < kFreeFrames)
+			if (!free_all && diff < kFreeFrames)
 				break;
 
 			device->destroyTextures.pop();
@@ -582,7 +582,7 @@ static void MGDX_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 		{
 			auto query = device->destroyQuery.front();
 			mgint diff = currentFrame - query->frame;
-			if (!free_all && diff < kFreeFrames || (0xFFFF - diff) < kFreeFrames)
+			if (!free_all && diff < kFreeFrames)
 				break;
 
 			device->destroyQuery.pop();

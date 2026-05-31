@@ -2036,7 +2036,7 @@ static void MGVK_ProcessDescriptorCaches(MGG_GraphicsDevice* device, FrameCounte
 		for (; pair != usedSets.end();)
 		{
 			auto diff = currentFrame - pair->second->frame;
-			if (diff < device->freeFrames || (0xFFFF - diff) < device->freeFrames)
+			if (diff < device->freeFrames)
 			{
 				pair++;
 				continue;
@@ -2253,7 +2253,7 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 		{
 			auto buffer = device->destroyBuffers.front();
 			auto diff = currentFrame - buffer->frame;
-			if (!free_all && diff < device->freeFrames || (0xFFFF - diff) < device->freeFrames)
+			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyBuffers.pop();
@@ -2265,7 +2265,7 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 		{
 			auto texture = device->destroyTextures.front();
 			auto diff = currentFrame - texture->frame;
-			if (!free_all && diff < device->freeFrames || (0xFFFF - diff) < device->freeFrames)
+			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyTextures.pop();
@@ -2303,7 +2303,7 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 		{
 			auto state = device->destroyBlendStates.front();
 			auto diff = currentFrame - state->frame;
-			if (!free_all && diff < device->freeFrames || (0xFFFF - diff) < device->freeFrames)
+			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyBlendStates.pop();
@@ -2316,7 +2316,7 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 		{
 			auto state = device->destroyRasterizerStates.front();
 			auto diff = currentFrame - state->frame;
-			if (!free_all && diff < device->freeFrames || (0xFFFF - diff) < device->freeFrames)
+			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyRasterizerStates.pop();
@@ -2329,7 +2329,7 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 		{
 			auto state = device->destroyDepthStencilStates.front();
 			auto diff = currentFrame - state->frame;
-			if (!free_all && diff < device->freeFrames || (0xFFFF - diff) < device->freeFrames)
+			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyDepthStencilStates.pop();
