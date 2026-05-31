@@ -2533,6 +2533,12 @@ void MGG_GraphicsDevice_SetRenderTargets(MGG_GraphicsDevice* device, MGG_Texture
 	else
 	{
 		memcpy(device->targets.targets, targets, count * sizeof(MGG_Texture*));
+		for (int i = 0; i < count; i++) {
+			targets[i]->frame = device->frame;
+			if (targets[i]->depthTexture) {
+				targets[i]->depthTexture->frame = device->frame;
+			}
+		}
         memset(device->targets.targets + count, 0, (MGVK_NUM_TARGETS - count) * sizeof(MGG_Texture*));
 		device->targets.numTargets = count;
 

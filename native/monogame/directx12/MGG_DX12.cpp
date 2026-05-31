@@ -711,6 +711,7 @@ void MGG_GraphicsDevice_SetRenderTargets(MGG_GraphicsDevice* device, MGG_Texture
 		colorTargets.reserve(count);
 		for (size_t i = 0; i < count; i++) {
 			colorTargets.push_back(targets[i]->texture);
+			targets[i]->frame = device->frame;
 		}
 
 		device->context->SetRenderTarget(colorTargets.data(), arraySlices, count, targets[0]->depthTexture);
