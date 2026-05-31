@@ -53,6 +53,7 @@ namespace MonoGame.Tests.Graphics
 
         [SetUp]
         [RunOnUI]
+        [Category("GraphicsDevice")]
         public virtual void SetUp()
         {
             game = new TestGameBase();

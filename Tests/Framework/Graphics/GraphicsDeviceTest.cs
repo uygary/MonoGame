@@ -4,11 +4,9 @@
 
 using System;
 using System.Linq;
-using System.Runtime.InteropServices;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
-using MonoGame.Interop;
 using NUnit.Framework;
 #if DESKTOPGL
 using MonoGame.OpenGL;

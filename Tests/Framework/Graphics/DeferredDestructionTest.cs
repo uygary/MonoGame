@@ -2,6 +2,8 @@
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
+#if VULKAN || DIRECTX12
+
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Interop;
@@ -11,10 +13,10 @@ using System.Runtime.InteropServices;
 namespace MonoGame.Tests.Graphics
 {
     [TestFixture]
+    [Category("MemoryLifeCycle")]
     [NonParallelizable]
     internal class DeferredDestructionTest
     {
-#if VULKAN || DIRECTX12
         
         #region Native Helpers
 
@@ -489,7 +491,7 @@ namespace MonoGame.Tests.Graphics
             
             testGame.Dispose();
         }
-
-#endif
     }
 }
+
+#endif
