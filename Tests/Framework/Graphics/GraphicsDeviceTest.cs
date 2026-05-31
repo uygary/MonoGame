@@ -880,6 +880,8 @@ namespace MonoGame.Tests.Graphics
             Assert.IsTrue(rtc.IsDisposed);
         }
 
+        #region Deferred Destruction Tests
+
         [Test]
         [RunOnUI]
         public void WaitForGpuToIdleBeforeDisposingBuffer()
@@ -922,5 +924,173 @@ namespace MonoGame.Tests.Graphics
 
             Assert.Pass();
         }
+
+        [Test]
+        [RunOnUI]
+#if VULKAN
+        [Ignore("Vulkan backend doesn't support creating multiple GraphicsDevice instances.")]
+#endif
+        public void DisposeAfterRenderTargetPresented()
+        {
+            var testGame = new TestGameBase()
+            {
+                IsFixedTimeStep = false,
+            };
+            new GraphicsDeviceManager(testGame)
+            {
+                GraphicsProfile = GraphicsProfile.HiDef,
+            };
+            var graphicsDeviceManager = testGame.Services.GetService<IGraphicsDeviceManager>();
+            graphicsDeviceManager.CreateDevice();
+            var graphicsDevice = testGame.GraphicsDevice;
+
+            // Create RenderTargets to be put on deferred destruction queues.
+            var renderTarget1 = new RenderTarget2D(graphicsDevice, 4096, 4096);
+            var renderTaraget2 = new RenderTarget2D(
+                graphicsDevice,
+                4096,
+                4096,
+                false,
+                SurfaceFormat.Color,
+                DepthFormat.Depth24);
+
+            // Issue GPU commands on renderTarget1.
+            graphicsDevice.SetRenderTarget(renderTarget1);
+            graphicsDevice.Clear(Color.Red);
+            graphicsDevice.SetRenderTarget(null);
+            graphicsDevice.Present();
+
+            // Issue GPU commands on renderTaraget2.
+            graphicsDevice.SetRenderTarget(renderTaraget2);
+            graphicsDevice.Clear(Color.Blue);
+            graphicsDevice.SetRenderTarget(null);
+            graphicsDevice.Present();
+
+            // Dispose resources and the game immediately.
+            renderTarget1.Dispose();
+            renderTaraget2.Dispose();
+            testGame.Dispose();
+        }
+
+        [Test]
+        [RunOnUI]
+        public void WaitForGpuToIdleBeforeDisposingRenderTarget()
+        {
+            for (var i = 0; i < 100; i++)
+            {
+                var rt = new RenderTarget2D(gd, 64, 64);
+
+                gd.SetRenderTarget(rt);
+                gd.Clear(new Color(i * 5, 0, 0));
+                gd.SetRenderTarget(null);
+                gd.Present();
+
+                rt.Dispose();
+            }
+
+            // We should only get here if we correctly wait for the GPU on each disposal.
+            Assert.Pass();
+        }
+
+        [Test]
+        [RunOnUI]
+        public void RenderTargetTextureSurvivesDeferredDestruction()
+        {
+            var rt = new RenderTarget2D(gd, 128, 128);
+
+            // Advance frames past threshold to make texture appear stale.
+            for (var i = 0; i < 10; i++)
+            {
+                gd.Clear(Color.Black);
+                gd.Present();
+            }
+
+            // Bind RenderTarget and present.
+            gd.SetRenderTarget(rt);
+            gd.Clear(Color.MonoGameOrange);
+            gd.SetRenderTarget(null);
+            gd.Present();
+
+            // Read RenderTarget texture to verify the texture frame was updated.
+            var data = new Color[128 * 128];
+            rt.GetData(data);
+            Assert.AreEqual(
+                Color.MonoGameOrange,
+                data[0],
+                "Render target texture was destroyed prematurely.");
+
+            rt.Dispose();
+        }
+
+        [Test]
+        [RunOnUI]
+        public void RenderTargetTextureWithDepthSurvivesDeferredDestruction()
+        {
+            var renderTarget = new RenderTarget2D(
+                gd,
+                128,
+                128,
+                false,
+                SurfaceFormat.Color,
+                DepthFormat.Depth24);
+
+            // Advance frames past threshold to make texture appear stale.
+            for (var i = 0; i < 10; i++)
+            {
+                gd.Clear(Color.Black);
+                gd.Present();
+            }
+
+            // Bind RenderTarget and present.
+            gd.SetRenderTarget(renderTarget);
+            gd.Clear(Color.MonoGameOrange);
+            gd.SetRenderTarget(null);
+            gd.Present();
+
+            // Read RenderTarget texture to verify the texture frame was updated.
+            var data = new Color[128 * 128];
+            renderTarget.GetData(data);
+            Assert.AreEqual(
+                Color.MonoGameOrange,
+                data[0],
+                "Render target texture with depth was destroyed prematurely.");
+
+            renderTarget.Dispose();
+        }
+
+        [Test]
+        [RunOnUI]
+        public void MultipleRenderTargetsDisposeOrder()
+        {
+            var renderTarget1 = new RenderTarget2D(gd, 128, 128);
+            var renderTarget2 = new RenderTarget2D(gd, 128, 128);
+            var renderTarget3 = new RenderTarget2D(gd, 128, 128);
+            var renderTarget4 = new RenderTarget2D(gd, 128, 128);
+
+            // Bind and use each.
+            gd.SetRenderTarget(renderTarget1);
+            gd.Clear(Color.Red);
+            
+            gd.SetRenderTarget(renderTarget2);
+            gd.Clear(Color.Green);
+            
+            gd.SetRenderTarget(renderTarget3);
+            gd.Clear(Color.Blue);
+
+            gd.SetRenderTarget(renderTarget4);
+            gd.Clear(Color.MonoGameOrange);
+
+            gd.SetRenderTarget(null);
+            gd.Present();
+
+            renderTarget4.Dispose();
+            renderTarget3.Dispose();
+            renderTarget2.Dispose();
+            renderTarget1.Dispose();
+
+            Assert.Pass();
+        }
+
+#endregion Deferred Destruction Tests
     }
 }
