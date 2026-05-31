@@ -427,63 +427,151 @@ jobs:
           CI: true
         working-directory: tests-windowsdx
         
-      # Run DirectX 12 tests in separate groups.
-      - name: Run DirectX 12 Audio Tests
-        if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        run: dotnet test --filter Category=Audio --blame-hang-timeout 5m MonoGame.Tests.dll
-        env:
-          CI: true
-        working-directory: tests-windowsdx12
-        
-      - name: Run DirectX 12 All Tests Except Audio, GraphicsDevice, MemoryLifeCycle
-        if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        run: dotnet test --filter "Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll
-        env:
-          CI: true
-        working-directory: tests-windowsdx12
-        
-      - name: Run DirectX 12 GraphicsDevice Tests
-        if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        run: dotnet test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll
-        env:
-          CI: true
-        working-directory: tests-windowsdx12
-        
-      - name: Run DirectX 12 MemoryLifeCycle Tests
-        if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        run: dotnet test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll
-        env:
-          CI: true
-        working-directory: tests-windowsdx12
+      ## Run DirectX 12 tests in separate groups.
+      #- name: Run DirectX 12 Audio Tests
+      #  if: runner.os == 'Windows' && runner.environment != 'github-hosted'
+      #  run: dotnet test --filter Category=Audio --blame-hang-timeout 5m MonoGame.Tests.dll
+      #  env:
+      #    CI: true
+      #  working-directory: tests-windowsdx12
+      #  
+      #- name: Run DirectX 12 All Tests Except Audio, GraphicsDevice, MemoryLifeCycle
+      #  if: runner.os == 'Windows' && runner.environment != 'github-hosted'
+      #  run: dotnet test --filter "Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll
+      #  env:
+      #    CI: true
+      #  working-directory: tests-windowsdx12
+      #  
+      #- name: Run DirectX 12 GraphicsDevice Tests
+      #  if: runner.os == 'Windows' && runner.environment != 'github-hosted'
+      #  run: dotnet test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll
+      #  env:
+      #    CI: true
+      #  working-directory: tests-windowsdx12
+      #  
+      #- name: Run DirectX 12 MemoryLifeCycle Tests
+      #  if: runner.os == 'Windows' && runner.environment != 'github-hosted'
+      #  run: dotnet test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll
+      #  env:
+      #    CI: true
+      #  working-directory: tests-windowsdx12
 
-      # Run Vulkan tests in separate groups.
-      - name: Run Vulkan Audio Tests
-        if: runner.environment != 'github-hosted'
-        run: dotnet test --filter Category=Audio --blame-hang-timeout 5m MonoGame.Tests.dll
+      # Run DirectX 12 tests in parallel
+      - name: Run DirectX 12 Tests (Parallel)
+        if: runner.os == 'Windows' && runner.environment != 'github-hosted'
+        working-directory: tests-windowsdx12
+        shell: bash
         env:
           CI: true
-        working-directory: tests-desktopvk
-        
-      - name: Run Vulkan All Tests Except Audio, GraphicsDevice, MemoryLifeCycle
+        run: |
+          # 1. Run tests in background and redirect output to files
+          dotnet test --filter Category=Audio --blame-hang-timeout 5m MonoGame.Tests.dll > dx12_audio_test_result.log 2>&1 &
+          PID1=$!
+          
+          dotnet test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll > dx12_graphics_device_test_result.log 2>&1 &
+          PID2=$!
+          
+          dotnet test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll > dx12_memory_lifecycle_test_result.log 2>&1 &
+          PID3=$!
+          
+          dotnet test --filter "Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll > dx12_remaining_test_result.log 2>&1 &
+          PID4=$!
+          
+          # 2. Wait for ech background processes to finish and print results
+          wait $PID1; STATUS1=$?
+          echo "======== Audio Tests ========"
+          cat dx12_audio_test_result.log
+
+          wait $PID2; STATUS2=$?
+          echo -e "\n======== GraphicsDevice Tests ========"
+          cat dx12_graphics_device_test_result.log
+
+          wait $PID3; STATUS3=$?
+          echo -e "\n======== MemoryLifeCycle Tests ========"
+          cat dx12_memory_lifecycle_test_result.log
+
+          wait $PID4; STATUS4=$?
+          echo -e "\n======== Remaining Tests ========"
+          cat dx12_remaining_test_result.log
+          
+          # 3. Fail the whole step if ANY of the background tests failed
+          if [ $STATUS1 -ne 0 ] || [ $STATUS2 -ne 0 ] || [ $STATUS3 -ne 0 ] || [ $STATUS4 -ne 0 ]; then
+            echo "One or more tests failed!"
+            exit 1
+          fi
+
+      ## Run Vulkan tests in separate groups.
+      #- name: Run Vulkan Audio Tests
+      #  if: runner.environment != 'github-hosted'
+      #  run: dotnet test --filter Category=Audio --blame-hang-timeout 5m MonoGame.Tests.dll
+      #  env:
+      #    CI: true
+      #  working-directory: tests-desktopvk
+      #  
+      #- name: Run Vulkan All Tests Except Audio, GraphicsDevice, MemoryLifeCycle
+      #  if: runner.environment != 'github-hosted'
+      #  run: dotnet test --filter "Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll
+      #  env:
+      #    CI: true
+      #  working-directory: tests-desktopvk
+      #  
+      #- name: Run Vulkan GraphicsDevice Tests
+      #  if: runner.environment != 'github-hosted'
+      #  run: dotnet test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll
+      #  env:
+      #    CI: true
+      #  working-directory: tests-desktopvk
+      #  
+      #- name: Run Vulkan MemoryLifeCycle Tests
+      #  if: runner.environment != 'github-hosted'
+      #  run: dotnet test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll
+      #  env:
+      #    CI: true
+      #  working-directory: tests-desktopvk
+
+      # Run Vulkan tests in parallel
+      - name: Run Vulkan Tests (Parallel)
         if: runner.environment != 'github-hosted'
-        run: dotnet test --filter "Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll
+        working-directory: tests-desktopvk
+        shell: bash
         env:
           CI: true
-        working-directory: tests-desktopvk
-        
-      - name: Run Vulkan GraphicsDevice Tests
-        if: runner.environment != 'github-hosted'
-        run: dotnet test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll
-        env:
-          CI: true
-        working-directory: tests-desktopvk
-        
-      - name: Run Vulkan MemoryLifeCycle Tests
-        if: runner.environment != 'github-hosted'
-        run: dotnet test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll
-        env:
-          CI: true
-        working-directory: tests-desktopvk
+        run: |
+          # 1. Run tests in background and redirect output to files
+          dotnet test --filter Category=Audio --blame-hang-timeout 5m MonoGame.Tests.dll > vk_audio_test_result.log 2>&1 &
+          PID1=$!
+          
+          dotnet test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll > vk_graphics_device_test_result.log 2>&1 &
+          PID2=$!
+          
+          dotnet test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll > vk_memory_lifecycle_test_result.log 2>&1 &
+          PID3=$!
+          
+          dotnet test --filter "Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll > vk_remaining_test_result.log 2>&1 &
+          PID4=$!
+          
+          # 2. Wait for ech background processes to finish and print results
+          wait $PID1; STATUS1=$?
+          echo "======== Audio Tests ========"
+          cat vk_audio_test_result.log
+
+          wait $PID2; STATUS2=$?
+          echo -e "\n======== GraphicsDevice Tests ========"
+          cat vk_graphics_device_test_result.log
+
+          wait $PID3; STATUS3=$?
+          echo -e "\n======== MemoryLifeCycle Tests ========"
+          cat vk_memory_lifecycle_test_result.log
+
+          wait $PID4; STATUS4=$?
+          echo -e "\n======== Remaining Tests ========"
+          cat vk_remaining_test_result.log
+          
+          # 3. Fail the whole step if ANY of the background tests failed
+          if [ $STATUS1 -ne 0 ] || [ $STATUS2 -ne 0 ] || [ $STATUS3 -ne 0 ] || [ $STATUS4 -ne 0 ]; then
+            echo "One or more tests failed!"
+            exit 1
+          fi
 
       # Run the DesktopGL tests on all platforms using NUnitLite runner not dotnet test
       # We have to run this is bits because the tests crash if too many are run in one go?
