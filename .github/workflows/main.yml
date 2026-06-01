@@ -513,8 +513,7 @@ jobs:
           else                { Write-Host "✅ Remaining Tests passed!" }
           Write-Host "`n`n========  End Final Results  ========"
           
-          # Temporarily disable just to see Vulkan results. //TODO: Revert this.
-          #if ($Failed -ne 0) { exit 1 }
+          if ($Failed -ne 0) { exit 1 }
 
       ## Run Vulkan tests in separate groups.
       #- name: Run Vulkan Audio Tests
