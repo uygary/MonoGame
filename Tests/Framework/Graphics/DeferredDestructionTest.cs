@@ -8,7 +8,6 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Interop;
 using NUnit.Framework;
-using System.Runtime.InteropServices;
 
 namespace MonoGame.Tests.Graphics
 {
@@ -20,28 +19,19 @@ namespace MonoGame.Tests.Graphics
         
         #region Native Helpers
 
-        [DllImport("mgruntime", EntryPoint = "MGG_GraphicsDevice_GetDestroyQueueSize", ExactSpelling = true)]
-        private static extern unsafe int GraphicsDevice_GetDestroyQueueSize(MGG_GraphicsDevice* device);
-
-        [DllImport("mgruntime", EntryPoint = "MGG_GraphicsDevice_GetCurrentFrame", ExactSpelling = true)]
-        private static extern unsafe int GraphicsDevice_GetCurrentFrame(MGG_GraphicsDevice* device);
-
-        [DllImport("mgruntime", EntryPoint = "MGG_GraphicsDevice_GetFreeFrames", ExactSpelling = true)]
-        private static extern unsafe int GraphicsDevice_GetFreeFrames(MGG_GraphicsDevice* device);
-
         private unsafe int GetDestroyQueueSize(GraphicsDevice device)
         {
-            return GraphicsDevice_GetDestroyQueueSize(device.Handle);
+            return MGG.GraphicsDevice_GetDestroyQueueSize(device.Handle);
         }
 
         private unsafe int GetCurrentFrame(GraphicsDevice device)
         {
-            return GraphicsDevice_GetCurrentFrame(device.Handle);
+            return MGG.GraphicsDevice_GetCurrentFrame(device.Handle);
         }
 
         private unsafe int GetFreeFrames(GraphicsDevice device)
         {
-            return GraphicsDevice_GetFreeFrames(device.Handle);
+            return MGG.GraphicsDevice_GetFreeFrames(device.Handle);
         }
 
         /// <summary>
