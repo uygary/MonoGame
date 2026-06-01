@@ -115,8 +115,10 @@ namespace MonoGame.Tests.Graphics
                 indexBuffer.Dispose();
             }
 
-            Assert.Pass();
+            //graphicsDevice.Dispose();
             testGame.Dispose();
+
+            Assert.Pass();
         }
 
         [Test]
@@ -147,9 +149,11 @@ namespace MonoGame.Tests.Graphics
                 rt.Dispose();
             }
 
+            //graphicsDevice.Dispose();
+            testGame.Dispose();
+
             // We should only get here if we correctly wait for the GPU on each disposal.
             Assert.Pass();
-            testGame.Dispose();
         }
 
         [Test]
@@ -193,6 +197,7 @@ namespace MonoGame.Tests.Graphics
                 "Render target texture was destroyed prematurely.");
 
             renderTarget.Dispose();
+            //graphicsDevice.Dispose();
             testGame.Dispose();
         }
 
@@ -243,6 +248,7 @@ namespace MonoGame.Tests.Graphics
                 "Render target texture with depth was destroyed prematurely.");
 
             renderTarget.Dispose();
+            //graphicsDevice.Dispose();
             testGame.Dispose();
         }
 
@@ -287,9 +293,10 @@ namespace MonoGame.Tests.Graphics
             renderTarget3.Dispose();
             renderTarget2.Dispose();
             renderTarget1.Dispose();
+            //graphicsDevice.Dispose();
+            testGame.Dispose();
 
             Assert.Pass();
-            testGame.Dispose();
         }
 
         [Test]
@@ -333,11 +340,11 @@ namespace MonoGame.Tests.Graphics
             // Dispose resources and the game immediately.
             renderTarget1.Dispose();
             renderTaraget2.Dispose();
+            //graphicsDevice.Dispose();
             testGame.Dispose();
 
             // We should only reach here if there were no out-of-order disposals of resources.
             Assert.Pass();
-            testGame.Dispose();
         }
 
         [Test]
@@ -407,6 +414,7 @@ namespace MonoGame.Tests.Graphics
                  """);
 
             renderTarget.Dispose();
+            //graphicsDevice.Dispose();
             testGame.Dispose();
         }
 
@@ -460,6 +468,7 @@ namespace MonoGame.Tests.Graphics
                 $"Texture frame should change in bound {nameof(RenderTarget2D)}.");
 
             renderTarger.Dispose();
+            //graphicsDevice.Dispose();
             testGame.Dispose();
         }
 
@@ -519,7 +528,9 @@ namespace MonoGame.Tests.Graphics
             Assert.AreEqual(destroyQueueSizeAfterDisposal,
                 destroyQueueSizeAfterPresentation,
                 "underlying texture was prematurely destroyed.");
-            
+
+            renderTarget.Dispose();
+            //graphicsDevice.Dispose();
             testGame.Dispose();
         }
     }
