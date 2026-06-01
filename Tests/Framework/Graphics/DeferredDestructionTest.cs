@@ -6,7 +6,6 @@
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using MonoGame.Interop;
 using NUnit.Framework;
 
 namespace MonoGame.Tests.Graphics
@@ -23,7 +22,7 @@ namespace MonoGame.Tests.Graphics
         /// USed to retrieve the frame field from a texture.
         /// MGG_Texture layout is different in Vulkan and DX12.
         /// </summary>
-        /// <remarks>If either layout changes, this would need to be updtaed!</remarks>
+        /// <remarks>If either layout changes, this would need to be updated!</remarks>
         private unsafe int GetTextureFrame(Texture2D texture)
         {
             var textureHandle = (uint*)texture.Handle;
@@ -292,7 +291,7 @@ namespace MonoGame.Tests.Graphics
 
             // Create RenderTargets to be put on deferred destruction queues.
             var renderTarget1 = new RenderTarget2D(graphicsDevice, 4096, 4096);
-            var renderTaraget2 = new RenderTarget2D(
+            var renderTarget2 = new RenderTarget2D(
                 graphicsDevice,
                 4096,
                 4096,
@@ -306,15 +305,15 @@ namespace MonoGame.Tests.Graphics
             graphicsDevice.SetRenderTarget(null);
             graphicsDevice.Present();
 
-            // Issue GPU commands on renderTaraget2.
-            graphicsDevice.SetRenderTarget(renderTaraget2);
+            // Issue GPU commands on renderTarget2.
+            graphicsDevice.SetRenderTarget(renderTarget2);
             graphicsDevice.Clear(Color.Blue);
             graphicsDevice.SetRenderTarget(null);
             graphicsDevice.Present();
 
             // Dispose resources and the game immediately.
             renderTarget1.Dispose();
-            renderTaraget2.Dispose();
+            renderTarget2.Dispose();
             //graphicsDevice.Dispose();
             testGame.Dispose();
 
@@ -341,8 +340,8 @@ namespace MonoGame.Tests.Graphics
             var graphicsDevice = testGame.GraphicsDevice;
             graphicsDevice.PresentationParameters.PresentationInterval = PresentInterval.Immediate;
             
-            var renderTarger = new RenderTarget2D(graphicsDevice, 64, 64);
-            var frameZero = GetTextureFrame(renderTarger);
+            var renderTarget = new RenderTarget2D(graphicsDevice, 64, 64);
+            var frameZero = GetTextureFrame(renderTarget);
 
             // Advance 10 frames past creation.
             for (int i = 0; i < 10; i++)
@@ -351,7 +350,7 @@ namespace MonoGame.Tests.Graphics
                 graphicsDevice.Present();
             }
 
-            var frameBeforeBind = GetTextureFrame(renderTarger);
+            var frameBeforeBind = GetTextureFrame(renderTarget);
 
             // Frame shouldn't bump unless render target's bound.
             Assert.AreEqual(frameZero,
@@ -359,9 +358,9 @@ namespace MonoGame.Tests.Graphics
                 $"Texture frame should not change in unbound {nameof(RenderTarget2D)}.");
 
             // Update texture framee.
-            graphicsDevice.SetRenderTarget(renderTarger);
+            graphicsDevice.SetRenderTarget(renderTarget);
             graphicsDevice.Clear(Color.Red);
-            var frameAfterBind = GetTextureFrame(renderTarger);
+            var frameAfterBind = GetTextureFrame(renderTarget);
 
             graphicsDevice.SetRenderTarget(null);
             graphicsDevice.Present();
@@ -371,7 +370,7 @@ namespace MonoGame.Tests.Graphics
                 frameBeforeBind,
                 $"Texture frame should change in bound {nameof(RenderTarget2D)}.");
 
-            renderTarger.Dispose();
+            renderTarget.Dispose();
             //graphicsDevice.Dispose();
             testGame.Dispose();
         }
