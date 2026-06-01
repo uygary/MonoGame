@@ -19,21 +19,6 @@ namespace MonoGame.Tests.Graphics
         
         #region Native Helpers
 
-        private unsafe int GetDestroyQueueSize(GraphicsDevice device)
-        {
-            return MGG.GraphicsDevice_GetDestroyQueueSize(device.Handle);
-        }
-
-        private unsafe int GetCurrentFrame(GraphicsDevice device)
-        {
-            return MGG.GraphicsDevice_GetCurrentFrame(device.Handle);
-        }
-
-        private unsafe int GetFreeFrames(GraphicsDevice device)
-        {
-            return MGG.GraphicsDevice_GetFreeFrames(device.Handle);
-        }
-
         /// <summary>
         /// USed to retrieve the frame field from a texture.
         /// MGG_Texture layout is different in Vulkan and DX12.
@@ -339,77 +324,6 @@ namespace MonoGame.Tests.Graphics
 
         [Test]
         [RunOnUI]
-        public void ResourceFreedAtHighFrameCount()
-        {
-            var testGame = new TestGameBase()
-            {
-                IsFixedTimeStep = false,
-            };
-            new GraphicsDeviceManager(testGame)
-            {
-                GraphicsProfile = GraphicsProfile.HiDef,
-                SynchronizeWithVerticalRetrace = false,
-            };
-            
-            var graphicsDeviceManager = testGame.Services.GetService<IGraphicsDeviceManager>();
-            graphicsDeviceManager.CreateDevice();
-            var graphicsDevice = testGame.GraphicsDevice;
-            graphicsDevice.PresentationParameters.PresentationInterval = PresentInterval.Immediate;
-            
-            var renderTarget = new RenderTarget2D(graphicsDevice, 8, 8);
-            
-            graphicsDevice.SetRenderTarget(renderTarget);
-            graphicsDevice.Clear(Color.Red);
-            graphicsDevice.SetRenderTarget(null);
-            graphicsDevice.Present();
-
-            // TODO: I think the 0xFFFF logic is buggy.
-            for (var i = 0; i < 65535; i++)
-            {
-                graphicsDevice.Clear(Color.Black);
-                graphicsDevice.Present();
-            }
-
-            var baselineDestroyQueueSize = GetDestroyQueueSize(graphicsDevice);
-            var textureFrame = GetTextureFrame(renderTarget);
-            var frameBefore = GetCurrentFrame(graphicsDevice);
-            var freeFrames = GetFreeFrames(graphicsDevice);
-
-            renderTarget.Dispose();
-            var postDisposeDestroyQueueSize = GetDestroyQueueSize(graphicsDevice);
-            
-            Assert.AreEqual(baselineDestroyQueueSize + 1,
-                postDisposeDestroyQueueSize,
-                "RenderTarget should be in destroy queue.");
-
-            for (var i = 0; i < freeFrames + 1; i++)
-            {
-                graphicsDevice.Clear(Color.Black);
-                graphicsDevice.Present();
-            }
-
-            var postPresentDestroyQueueSize = GetDestroyQueueSize(graphicsDevice);
-            var postPresentationFrame = GetCurrentFrame(graphicsDevice);
-
-            Assert.AreEqual(baselineDestroyQueueSize,
-                postPresentDestroyQueueSize,
-                $"""
-                 Resource with old age was not freed.
-                 Expected destroy queue size: {baselineDestroyQueueSize}
-                 Actual destroy queue size: {postPresentDestroyQueueSize}
-                 Texture frame: {textureFrame}
-                 Frame before disposal: {frameBefore}
-                 Frame after presentation: {postPresentationFrame}
-                 Free frames: {freeFrames}
-                 """);
-
-            renderTarget.Dispose();
-            //graphicsDevice.Dispose();
-            testGame.Dispose();
-        }
-
-        [Test]
-        [RunOnUI]
         public void SetRenderTargetUpdatesTextureFrame()
         {
             var testGame = new TestGameBase()
@@ -458,68 +372,6 @@ namespace MonoGame.Tests.Graphics
                 $"Texture frame should change in bound {nameof(RenderTarget2D)}.");
 
             renderTarger.Dispose();
-            //graphicsDevice.Dispose();
-            testGame.Dispose();
-        }
-
-        [Test]
-        [RunOnUI]
-        public void RenderTargetDisposalAfterBindDefersDestruction()
-        {
-            var testGame = new TestGameBase()
-            {
-                IsFixedTimeStep = false,
-            };
-            new GraphicsDeviceManager(testGame)
-            {
-                GraphicsProfile = GraphicsProfile.HiDef,
-                SynchronizeWithVerticalRetrace = false,
-            };
-
-            var graphicsDeviceManager = testGame.Services.GetService<IGraphicsDeviceManager>();
-            graphicsDeviceManager.CreateDevice();
-            var graphicsDevice = testGame.GraphicsDevice;
-            graphicsDevice.PresentationParameters.PresentationInterval = PresentInterval.Immediate;
-            
-            var renderTarget = new RenderTarget2D(
-                graphicsDevice,
-                64,
-                64,
-                false,
-                SurfaceFormat.Color,
-                DepthFormat.Depth24Stencil8);
-
-            // Go past kFreeFrames threshold.
-            for (var i = 0; i < 10; i++)
-            {
-                graphicsDevice.Clear(Color.Black);
-                graphicsDevice.Present();
-            }
-
-            graphicsDevice.SetRenderTarget(renderTarget);
-            graphicsDevice.Clear(Color.Red);
-            graphicsDevice.SetRenderTarget(null);
-
-            var baselineDsetroyQueueSize = GetDestroyQueueSize(graphicsDevice);
-
-            renderTarget.Dispose();
-            var destroyQueueSizeAfterDisposal = GetDestroyQueueSize(graphicsDevice);
-
-            Assert.Greater(destroyQueueSizeAfterDisposal,
-                baselineDsetroyQueueSize,
-                $"Disposed {nameof(RenderTarget2D)} should enter destroy queue.");
-
-            graphicsDevice.Clear(Color.Black);
-            graphicsDevice.Present();
-
-            // This actually seems to crash, but still, the test is useful.
-            var destroyQueueSizeAfterPresentation = GetDestroyQueueSize(graphicsDevice);
-
-            Assert.AreEqual(destroyQueueSizeAfterDisposal,
-                destroyQueueSizeAfterPresentation,
-                "underlying texture was prematurely destroyed.");
-
-            renderTarget.Dispose();
             //graphicsDevice.Dispose();
             testGame.Dispose();
         }

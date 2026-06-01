@@ -82,6 +82,3 @@ MG_EXPORT void MGG_OcclusionQuery_Destroy(MGG_GraphicsDevice* device, MGG_Occlus
 MG_EXPORT void MGG_OcclusionQuery_Begin(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query);
 MG_EXPORT void MGG_OcclusionQuery_End(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query);
 MG_EXPORT mgbyte MGG_OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query, mgint& pixelCount);
-MG_EXPORT mgint MGG_GraphicsDevice_GetDestroyQueueSize(MGG_GraphicsDevice* device);
-MG_EXPORT mgint MGG_GraphicsDevice_GetCurrentFrame(MGG_GraphicsDevice* device);
-MG_EXPORT mgint MGG_GraphicsDevice_GetFreeFrames(MGG_GraphicsDevice* device);

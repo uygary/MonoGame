@@ -447,17 +447,4 @@ internal static unsafe partial class MGG
     public static extern byte OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query, out int pixelCount);
 
     #endregion
-
-    #region Profiling
-    
-    [DllImport("mgruntime", EntryPoint = "MGG_GraphicsDevice_GetDestroyQueueSize", ExactSpelling = true)]
-    internal static extern int GraphicsDevice_GetDestroyQueueSize(MGG_GraphicsDevice* device);
-
-    [DllImport("mgruntime", EntryPoint = "MGG_GraphicsDevice_GetCurrentFrame", ExactSpelling = true)]
-    internal static extern int GraphicsDevice_GetCurrentFrame(MGG_GraphicsDevice* device);
-
-    [DllImport("mgruntime", EntryPoint = "MGG_GraphicsDevice_GetFreeFrames", ExactSpelling = true)]
-    internal static extern int GraphicsDevice_GetFreeFrames(MGG_GraphicsDevice* device);
-
-    #endregion Profiling
 }
