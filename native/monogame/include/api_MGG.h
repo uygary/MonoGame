@@ -35,7 +35,6 @@ MG_EXPORT void MGG_GraphicsDevice_Destroy(MGG_GraphicsDevice* device);
 MG_EXPORT void MGG_GraphicsDevice_GetCaps(MGG_GraphicsDevice* device, MGG_GraphicsDevice_Caps& caps);
 MG_EXPORT void MGG_GraphicsDevice_ResizeSwapchain(MGG_GraphicsDevice* device, void* nativeWindowHandle, mgint width, mgint height, MGSurfaceFormat color, MGDepthFormat depth, mgint multiSampleCount, mgint syncInterval);
 MG_EXPORT mgint MGG_GraphicsDevice_BeginFrame(MGG_GraphicsDevice* device);
-MG_EXPORT mgint MGG_GraphicsDevice_GetPendingDestroyCount(const MGG_GraphicsDevice* device);
 MG_EXPORT void MGG_GraphicsDevice_Clear(MGG_GraphicsDevice* device, MGClearOptions options, Vector4& color, mgfloat depth, mgint stencil);
 MG_EXPORT void MGG_GraphicsDevice_Present(MGG_GraphicsDevice* device, mgint currentFrame, mgint syncInterval);
 MG_EXPORT void MGG_GraphicsDevice_SetBlendState(MGG_GraphicsDevice* device, MGG_BlendState* state, mgfloat factorR, mgfloat factorG, mgfloat factorB, mgfloat factorA);
@@ -83,3 +82,6 @@ MG_EXPORT void MGG_OcclusionQuery_Destroy(MGG_GraphicsDevice* device, MGG_Occlus
 MG_EXPORT void MGG_OcclusionQuery_Begin(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query);
 MG_EXPORT void MGG_OcclusionQuery_End(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query);
 MG_EXPORT mgbyte MGG_OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query, mgint& pixelCount);
+MG_EXPORT mgint MGG_GraphicsDevice_GetDestroyQueueSize(MGG_GraphicsDevice* device);
+MG_EXPORT mgint MGG_GraphicsDevice_GetCurrentFrame(MGG_GraphicsDevice* device);
+MG_EXPORT mgint MGG_GraphicsDevice_GetFreeFrames(MGG_GraphicsDevice* device);

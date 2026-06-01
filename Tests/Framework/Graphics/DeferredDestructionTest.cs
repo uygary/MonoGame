@@ -20,12 +20,28 @@ namespace MonoGame.Tests.Graphics
         
         #region Native Helpers
 
-        [DllImport("mgruntime", EntryPoint = "MGG_GraphicsDevice_GetPendingDestroyCount", ExactSpelling = true)]
-        private static extern unsafe int GetPendingDestroyCount(MGG_GraphicsDevice* device);
+        [DllImport("mgruntime", EntryPoint = "MGG_GraphicsDevice_GetDestroyQueueSize", ExactSpelling = true)]
+        private static extern unsafe int GraphicsDevice_GetDestroyQueueSize(MGG_GraphicsDevice* device);
+
+        [DllImport("mgruntime", EntryPoint = "MGG_GraphicsDevice_GetCurrentFrame", ExactSpelling = true)]
+        private static extern unsafe int GraphicsDevice_GetCurrentFrame(MGG_GraphicsDevice* device);
+
+        [DllImport("mgruntime", EntryPoint = "MGG_GraphicsDevice_GetFreeFrames", ExactSpelling = true)]
+        private static extern unsafe int GraphicsDevice_GetFreeFrames(MGG_GraphicsDevice* device);
 
         private unsafe int GetDestroyQueueSize(GraphicsDevice device)
         {
-            return GetPendingDestroyCount(device.Handle);
+            return GraphicsDevice_GetDestroyQueueSize(device.Handle);
+        }
+
+        private unsafe int GetCurrentFrame(GraphicsDevice device)
+        {
+            return GraphicsDevice_GetCurrentFrame(device.Handle);
+        }
+
+        private unsafe int GetFreeFrames(GraphicsDevice device)
+        {
+            return GraphicsDevice_GetFreeFrames(device.Handle);
         }
 
         /// <summary>
@@ -358,6 +374,9 @@ namespace MonoGame.Tests.Graphics
             }
 
             var baselineDestroyQueueSize = GetDestroyQueueSize(graphicsDevice);
+            var textureFrame = GetTextureFrame(renderTarget);
+            var frameBefore = GetCurrentFrame(graphicsDevice);
+            var freeFrames = GetFreeFrames(graphicsDevice);
 
             renderTarget.Dispose();
             var postDisposeDestroyQueueSize = GetDestroyQueueSize(graphicsDevice);
@@ -366,14 +385,26 @@ namespace MonoGame.Tests.Graphics
                 postDisposeDestroyQueueSize,
                 "RenderTarget should be in destroy queue.");
 
-            graphicsDevice.Clear(Color.Black);
-            graphicsDevice.Present();
+            for (var i = 0; i < freeFrames + 1; i++)
+            {
+                graphicsDevice.Clear(Color.Black);
+                graphicsDevice.Present();
+            }
 
             var postPresentDestroyQueueSize = GetDestroyQueueSize(graphicsDevice);
+            var postPresentationFrame = GetCurrentFrame(graphicsDevice);
 
             Assert.AreEqual(baselineDestroyQueueSize,
                 postPresentDestroyQueueSize,
-                $"Resource with old age was not freed. Expected destroy queue size: {baselineDestroyQueueSize}, actual: {postPresentDestroyQueueSize}");
+                $"""
+                 Resource with old age was not freed.
+                 Expected destroy queue size: {baselineDestroyQueueSize}
+                 Actual destroy queue size: {postPresentDestroyQueueSize}
+                 Texture frame: {textureFrame}
+                 Frame before disposal: {frameBefore}
+                 Frame after presentation: {postPresentationFrame}
+                 Free frames: {freeFrames}
+                 """);
 
             renderTarget.Dispose();
             testGame.Dispose();

@@ -35,9 +35,7 @@ using namespace Microsoft::WRL;
 
 typedef mguint FrameCounter;
 
-const FrameCounter kFreeFrames = 2;
-
-static void MGDX_DestroyFrameResources(MGG_GraphicsDevice* device, mgint currentFrame, mgbool free_all);
+static void MGDX_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter currentFrame, mgbool free_all);
 
 struct MGG_GraphicsAdapter
 {
@@ -57,6 +55,7 @@ const int MAX_TEXTURE_SLOTS = 16;
 struct MGG_GraphicsDevice
 {
 	FrameCounter frame = 0;
+	FrameCounter freeFrames = 0;
 	bool is_recording = false;
 
 	DeviceResources* resources = nullptr;
@@ -398,6 +397,7 @@ MGG_GraphicsDevice* MGG_GraphicsDevice_Create(MGG_GraphicsSystem* system, MGG_Gr
 
 	device->context = device->resources->GetCommandContext();
 	device->pipelineManager = new PipelineStateManager(device->resources);
+	device->freeFrames = device->resources->GetBackBufferCount() + 1;
 
 	return device;
 }
@@ -539,18 +539,17 @@ void MGG_GraphicsDevice_Clear(MGG_GraphicsDevice* device, MGClearOptions options
 	device->context->Clear(options, color.X, color.Y, color.Z, color.W, depth, stencil);
 }
 
-static void MGDX_DestroyFrameResources(MGG_GraphicsDevice* device, mgint currentFrame, mgbool free_all)
+static void MGDX_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter currentFrame, mgbool free_all)
 {
 	assert(device != nullptr);
-	assert(currentFrame >= 0);
 
 	// Delete resources that haven't been used in a few frames 
 	{
 		while (device->destroyBuffers.size() > 0)
 		{
 			auto buffer = device->destroyBuffers.front();
-			mgint diff = currentFrame - buffer->frame;
-			if (!free_all && diff < kFreeFrames)
+			auto diff = currentFrame - buffer->frame;
+			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyBuffers.pop();
@@ -561,8 +560,8 @@ static void MGDX_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 		while (device->destroyTextures.size() > 0)
 		{
 			auto texture = device->destroyTextures.front();
-			mgint diff = currentFrame - texture->frame;
-			if (!free_all && diff < kFreeFrames)
+			auto diff = currentFrame - texture->frame;
+			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyTextures.pop();
@@ -581,8 +580,8 @@ static void MGDX_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 		while (device->destroyQuery.size() > 0)
 		{
 			auto query = device->destroyQuery.front();
-			mgint diff = currentFrame - query->frame;
-			if (!free_all && diff < kFreeFrames)
+			auto diff = currentFrame - query->frame;
+			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyQuery.pop();
@@ -1995,7 +1994,7 @@ mgbyte MGG_OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQue
 	return true;
 }
 
-mgint MGG_GraphicsDevice_GetPendingDestroyCount(const MGG_GraphicsDevice* device)
+mgint MGG_GraphicsDevice_GetDestroyQueueSize(MGG_GraphicsDevice* device)
 {
 	if (!device)
 	{
@@ -2007,4 +2006,24 @@ mgint MGG_GraphicsDevice_GetPendingDestroyCount(const MGG_GraphicsDevice* device
 		device->destroyTextures.size()
 		+ device->destroyBuffers.size()
 		+ device->destroyQuery.size());
+}
+
+mgint MGG_GraphicsDevice_GetCurrentFrame(MGG_GraphicsDevice* device)
+{
+	if (!device)
+	{
+		return -1;
+	}
+
+	return static_cast<mgint>(device->frame);
+}
+
+mgint MGG_GraphicsDevice_GetFreeFrames(MGG_GraphicsDevice* device)
+{
+	if (!device)
+	{
+		return -1;
+	}
+
+	return static_cast<mgint>(device->freeFrames);
 }

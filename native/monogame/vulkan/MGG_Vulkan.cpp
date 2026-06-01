@@ -469,7 +469,7 @@ struct MGG_GraphicsSystem
 static void MGVK_BufferCopyAndFlush(MGG_GraphicsDevice* device, MGG_Buffer* buffer, int destOffset, mgbyte* data, int dataBytes);
 static MGG_Buffer* MGVK_Buffer_Create(MGG_GraphicsDevice* device, MGBufferType type, mgint sizeInBytes, bool no_push);
 static void MGVK_DestroyPipelines(MGG_GraphicsDevice* device, std::function<bool(const MGVK_PipelineState&)> compare);
-static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint currentFrame, mgbyte free_all);
+static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter currentFrame, mgbyte free_all);
 static void MGVK_UpdateRenderPass(MGG_GraphicsDevice* device, FrameCounter currentFrame, VkCommandBuffer commandBuffer);
 static VkCommandBuffer MGVK_BeginNewCommandBuffer(MGG_GraphicsDevice* device);
 static void MGVK_ExecuteAndFreeCommandBuffer(MGG_GraphicsDevice* device, VkCommandBuffer commandBuffer);
@@ -2101,7 +2101,11 @@ mgint MGG_GraphicsDevice_BeginFrame(MGG_GraphicsDevice* device)
 
 	// Cleanup resources from the last time this frame was rendered.
 	MGVK_ProcessDescriptorCaches(device, currentFrame);
-	MGVK_DestroyFrameResources(device, device->swapchain_image_index, false);
+
+	// MGVK_DestroyFrameResources uses currentFrame and device->freeFrames to calculate age.
+	// We should pass the device->frame rather than swapchain_image_index.
+	// Otherwise age calculation will underflow.
+	MGVK_DestroyFrameResources(device, device->frame, false);
 
 	swap->uniformOffset = 0;
 	if (swap->uniforms == NULL)
@@ -2239,17 +2243,13 @@ static void MGVK_DestroyPipelines(MGG_GraphicsDevice* device, std::function<bool
 	}
 }
 
-static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint currentFrame, mgbyte free_all)
+static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter currentFrame, mgbyte free_all)
 {
 	assert(device != nullptr);
-	assert(currentFrame >= 0);
-
-	auto frameIndex = currentFrame % device->swapchainCount;
-	auto& swap = device->swapchains[frameIndex];
 	
 	// Delete resources that haven't been used in a few frames 
 	{
-		while (device->destroyBuffers.size() > 0)
+		while (!device->destroyBuffers.empty())
 		{
 			auto buffer = device->destroyBuffers.front();
 			auto diff = currentFrame - buffer->frame;
@@ -2261,7 +2261,7 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 			delete buffer;
 		}
 
-		while (device->destroyTextures.size() > 0)
+		while (!device->destroyTextures.empty())
 		{
 			auto texture = device->destroyTextures.front();
 			auto diff = currentFrame - texture->frame;
@@ -2274,6 +2274,13 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 			{
 				MGVK_DestroyPipelines(device, [texture](const MGVK_PipelineState& s)
 				{
+					// Just being defensive. s.targets should'nt be null.
+					// I want to make sure swap-chain cleanup won't have an impact here.
+					if (!s.targets)
+					{
+						return false;
+					}
+
 					return	s.targets->set.targets[0] == texture ||
 						s.targets->set.targets[1] == texture ||
 						s.targets->set.targets[2] == texture ||
@@ -5548,7 +5555,7 @@ mgbyte MGG_OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQue
 	}
 }
 
-mgint MGG_GraphicsDevice_GetPendingDestroyCount(const MGG_GraphicsDevice* device)
+mgint MGG_GraphicsDevice_GetDestroyQueueSize(MGG_GraphicsDevice* device)
 {
 	if (!device)
 	{
@@ -5563,4 +5570,24 @@ mgint MGG_GraphicsDevice_GetPendingDestroyCount(const MGG_GraphicsDevice* device
 		+ device->destroyRasterizerStates.size()
 		+ device->destroyDepthStencilStates.size()
 		+ device->destroySamplers.size());
+}
+
+mgint MGG_GraphicsDevice_GetCurrentFrame(MGG_GraphicsDevice* device)
+{
+	if (!device)
+	{
+		return -1;
+	}
+
+	return static_cast<mgint>(device->frame);
+}
+
+mgint MGG_GraphicsDevice_GetFreeFrames(MGG_GraphicsDevice* device)
+{
+	if (!device)
+	{
+		return -1;
+	}
+
+	return static_cast<mgint>(device->freeFrames);
 }
