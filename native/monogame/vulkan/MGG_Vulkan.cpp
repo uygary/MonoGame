@@ -774,7 +774,9 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 		vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
 
 #ifdef __APPLE__
+		fflush(stdout);
 		printf("Found %u Vulkan instance extensions.\n", count);
+		fflush(stdout);
 #endif
 
 		supportedInstanceExtensions.resize(count);
@@ -782,11 +784,13 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 		vkEnumerateInstanceExtensionProperties(nullptr, &count, supportedInstanceExtensions.data());
 
 #ifdef __APPLE__
+		fflush(stdout);
 		printf("Supported Vulkan instance extensions:\n");
 		for (const auto& ext : supportedInstanceExtensions)
 		{
 			printf("- %s\n", ext.extensionName);
 		}
+		fflush(stdout);
 #endif
 	}
 
@@ -797,7 +801,9 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 		SDL_Vulkan_GetInstanceExtensions(nullptr, &count, nullptr);
 
 #ifdef __APPLE__
+		fflush(stdout);
 		printf("Found %u Vulkan instance extensions required by SDL.\n", count);
+		fflush(stdout);
 #endif
 
 		instanceExtensions.resize(count);
@@ -806,11 +812,13 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 		SDL_Vulkan_GetInstanceExtensions(nullptr, &count, instanceExtensions.data());
 
 #ifdef __APPLE__
+		fflush(stdout);
 		printf("Retrieved Vulkan instance extensions required by SDL:\n");
 		for (const auto& ext : instanceExtensions)
 		{
 			printf("- %s\n", ext);
 		}
+		fflush(stdout);
 #endif
 	}
 #endif
