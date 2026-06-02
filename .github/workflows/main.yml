@@ -464,13 +464,13 @@ jobs:
           CI: true
         run: |
           # 1. Run tests in background and redirect output to files
-          $proc1 = Start-Process dotnet -ArgumentList "test --filter Category=Audio --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_audio.log" -RedirectStandardError "dx12_audio.err" -PassThru -NoNewWindow
+          $proc1 = Start-Process dotnet -ArgumentList "test --filter `"Category=Audio|Category=Song`"" --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_audio.log" -RedirectStandardError "dx12_audio.err" -PassThru -NoNewWindow
           $proc2 = Start-Process dotnet -ArgumentList "test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_graphics_device.log" -RedirectStandardError "dx12_graphics_device.err" -PassThru -NoNewWindow
           $proc3 = Start-Process dotnet -ArgumentList "test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_memory_lifecycle.log" -RedirectStandardError "dx12_memory_lifecycle.err" -PassThru -NoNewWindow
           
           # 2. Run the last test suite in foreground
           Write-Host "======== Running all tests except Audio, GraphicsDevice, MemoryLifeCycle ========"
-          $proc4 = Start-Process dotnet -ArgumentList "test --filter `"Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle`" --blame-hang-timeout 5m MonoGame.Tests.dll" -PassThru -NoNewWindow -Wait
+          $proc4 = Start-Process dotnet -ArgumentList "test --filter `"Category!=Audio&Category!=Song&Category!=GraphicsDevice&Category!=MemoryLifeCycle`" --blame-hang-timeout 5m MonoGame.Tests.dll" -PassThru -NoNewWindow -Wait
           $Status4 = $proc4.ExitCode
           if ($Status4 -ne 0) { Write-Host "❌ Remaining Tests failed!"; $Failed=1 }
           else                { Write-Host "☑️ Remaining Tests passed!" }
@@ -552,13 +552,13 @@ jobs:
           CI: true
         run: |
           # 1. Run tests in background and redirect output to files
-          $proc1 = Start-Process dotnet -ArgumentList "test --filter Category=Audio --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "vk_audio.log" -RedirectStandardError "vk_audio.err" -PassThru -NoNewWindow
+          $proc1 = Start-Process dotnet -ArgumentList "test --filter `"Category=Audio|Category=Song`" --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "vk_audio.log" -RedirectStandardError "vk_audio.err" -PassThru -NoNewWindow
           $proc2 = Start-Process dotnet -ArgumentList "test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "vk_graphics_device.log" -RedirectStandardError "vk_graphics_device.err" -PassThru -NoNewWindow
           $proc3 = Start-Process dotnet -ArgumentList "test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "vk_memory_lifecycle.log" -RedirectStandardError "vk_memory_lifecycle.err" -PassThru -NoNewWindow
           
           # 2. Run the last test suite in foreground
           Write-Host "======== Running all tests except Audio, GraphicsDevice, MemoryLifeCycle ========"
-          $proc4 = Start-Process dotnet -ArgumentList "test --filter `"Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle`" --blame-hang-timeout 5m MonoGame.Tests.dll" -PassThru -NoNewWindow -Wait
+          $proc4 = Start-Process dotnet -ArgumentList "test --filter `"Category!=Audio&Category!=Song&Category!=GraphicsDevice&Category!=MemoryLifeCycle`" --blame-hang-timeout 5m MonoGame.Tests.dll" -PassThru -NoNewWindow -Wait
           $Status4 = $proc4.ExitCode
           if ($Status4 -ne 0) { Write-Host "❌ Remaining Tests failed!"; $Failed=1 }
           else                { Write-Host "☑️ Remaining Tests passed!" }
@@ -610,7 +610,7 @@ jobs:
           CI: true
         run: |
           # 1. Run tests in background and redirect output to files
-          dotnet test --filter Category=Audio --blame-hang-timeout 5m MonoGame.Tests.dll > vk_audio_test_result.log 2>&1 &
+          dotnet test --filter "Category=Audio|Category=Song" --blame-hang-timeout 5m MonoGame.Tests.dll > vk_audio_test_result.log 2>&1 &
           PID1=$!
           
           dotnet test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll > vk_graphics_device_test_result.log 2>&1 &
@@ -621,7 +621,7 @@ jobs:
           
           # 2. Run the last test suite in foreground
           echo "======== Running all tests except Audio, GraphicsDevice, MemoryLifeCycle ========"
-          dotnet test --filter "Category!=Audio&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll
+          dotnet test --filter "Category!=Audio&Category!=Song&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll
           STATUS4=$?
           if [ $STATUS4 -ne 0 ]; then echo "❌ Remaining Tests failed!"; else echo "☑️ Remaining Tests passed!"; fi
           
