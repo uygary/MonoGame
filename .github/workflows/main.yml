@@ -464,9 +464,9 @@ jobs:
           CI: true
         run: |
           # 1. Run tests in background and redirect output to files
-          $proc1 = Start-Process dotnet -ArgumentList "test --filter `"Category=Audio|Category=Song`" --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_audio.log" -RedirectStandardError "dx12_audio.err" -PassThru -NoNewWindow
-          $proc2 = Start-Process dotnet -ArgumentList "test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_graphics_device.log" -RedirectStandardError "dx12_graphics_device.err" -PassThru -NoNewWindow
-          $proc3 = Start-Process dotnet -ArgumentList "test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_memory_lifecycle.log" -RedirectStandardError "dx12_memory_lifecycle.err" -PassThru -NoNewWindow
+          $proc1 = Start-Process dotnet -ArgumentList "test --filter `"Category=Audio|Category=Song`" --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_audio.log" -RedirectStandardError "dx12_audio.err" -PassThru -WindowStyle Hidden
+          $proc2 = Start-Process dotnet -ArgumentList "test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_graphics_device.log" -RedirectStandardError "dx12_graphics_device.err" -PassThru -WindowStyle Hidden
+          $proc3 = Start-Process dotnet -ArgumentList "test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_memory_lifecycle.log" -RedirectStandardError "dx12_memory_lifecycle.err" -PassThru -WindowStyle Hidden
           
           # 2. Run the last test suite in foreground
           Write-Host "======== Running all tests except Audio, GraphicsDevice, MemoryLifeCycle ========"
@@ -479,24 +479,24 @@ jobs:
           Wait-Process -InputObject $proc1
           $Status1 = $proc1.ExitCode
           Write-Host "`n======== Audio Tests ========"
-          if (Test-Path dx12_audio.log) { Get-Content dx12_audio.log -Raw }
-          if (Test-Path dx12_audio.err) { Get-Content dx12_audio.err -Raw }
+          if (Test-Path dx12_audio.log) { Get-Content dx12_audio.log -Raw | Write-Host }
+          if (Test-Path dx12_audio.err) { Get-Content dx12_audio.err -Raw | Write-Host }
           if ($Status1 -ne 0) { Write-Host "❌ Audio Tests failed!"; $Failed=1 }
           else                { Write-Host "☑️ Audio Tests passed!" }
           
           Wait-Process -InputObject $proc2
           $Status2 = $proc2.ExitCode
           Write-Host "`n======== GraphicsDevice Tests ========"
-          if (Test-Path dx12_graphics_device.log) { Get-Content dx12_graphics_device.log -Raw }
-          if (Test-Path dx12_graphics_device.err) { Get-Content dx12_graphics_device.err -Raw }
+          if (Test-Path dx12_graphics_device.log) { Get-Content dx12_graphics_device.log -Raw | Write-Host }
+          if (Test-Path dx12_graphics_device.err) { Get-Content dx12_graphics_device.err -Raw | Write-Host }
           if ($Status2 -ne 0) { Write-Host "❌ GraphicsDevice Tests failed!"; $Failed=1 }
           else                { Write-Host "☑️ GraphicsDevice Tests passed!" }
           
           Wait-Process -InputObject $proc3
           $Status3 = $proc3.ExitCode
           Write-Host "`n======== MemoryLifeCycle Tests ========"
-          if (Test-Path dx12_memory_lifecycle.log) { Get-Content dx12_memory_lifecycle.log -Raw }
-          if (Test-Path dx12_memory_lifecycle.err) { Get-Content dx12_memory_lifecycle.err -Raw }
+          if (Test-Path dx12_memory_lifecycle.log) { Get-Content dx12_memory_lifecycle.log -Raw | Write-Host }
+          if (Test-Path dx12_memory_lifecycle.err) { Get-Content dx12_memory_lifecycle.err -Raw | Write-Host }
           if ($Status3 -ne 0) { Write-Host "❌ MemoryLifeCycle Tests failed!"; $Failed=1 }
           else                { Write-Host "☑️ MemoryLifeCycle Tests passed!" }
           
@@ -552,9 +552,9 @@ jobs:
           CI: true
         run: |
           # 1. Run tests in background and redirect output to files
-          $proc1 = Start-Process dotnet -ArgumentList "test --filter `"Category=Audio|Category=Song`" --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "vk_audio.log" -RedirectStandardError "vk_audio.err" -PassThru -NoNewWindow
-          $proc2 = Start-Process dotnet -ArgumentList "test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "vk_graphics_device.log" -RedirectStandardError "vk_graphics_device.err" -PassThru -NoNewWindow
-          $proc3 = Start-Process dotnet -ArgumentList "test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "vk_memory_lifecycle.log" -RedirectStandardError "vk_memory_lifecycle.err" -PassThru -NoNewWindow
+          $proc1 = Start-Process dotnet -ArgumentList "test --filter `"Category=Audio|Category=Song`" --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "vk_audio.log" -RedirectStandardError "vk_audio.err" -PassThru -WindowStyle Hidden
+          $proc2 = Start-Process dotnet -ArgumentList "test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "vk_graphics_device.log" -RedirectStandardError "vk_graphics_device.err" -PassThru -WindowStyle Hidden
+          $proc3 = Start-Process dotnet -ArgumentList "test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "vk_memory_lifecycle.log" -RedirectStandardError "vk_memory_lifecycle.err" -PassThru -WindowStyle Hidden
           
           # 2. Run the last test suite in foreground
           Write-Host "======== Running all tests except Audio, GraphicsDevice, MemoryLifeCycle ========"
@@ -567,24 +567,24 @@ jobs:
           Wait-Process -InputObject $proc1
           $Status1 = $proc1.ExitCode
           Write-Host "`n======== Audio Tests ========"
-          if (Test-Path vk_audio.log) { Get-Content vk_audio.log -Raw }
-          if (Test-Path vk_audio.err) { Get-Content vk_audio.err -Raw }
+          if (Test-Path vk_audio.log) { Get-Content vk_audio.log -Raw | Write-Host }
+          if (Test-Path vk_audio.err) { Get-Content vk_audio.err -Raw | Write-Host }
           if ($Status1 -ne 0) { Write-Host "❌ Audio Tests failed!"; $Failed=1 }
           else                { Write-Host "☑️ Audio Tests passed!" }
           
           Wait-Process -InputObject $proc2
           $Status2 = $proc2.ExitCode
           Write-Host "`n======== GraphicsDevice Tests ========"
-          if (Test-Path vk_graphics_device.log) { Get-Content vk_graphics_device.log -Raw }
-          if (Test-Path vk_graphics_device.err) { Get-Content vk_graphics_device.err -Raw }
+          if (Test-Path vk_graphics_device.log) { Get-Content vk_graphics_device.log -Raw | Write-Host }
+          if (Test-Path vk_graphics_device.err) { Get-Content vk_graphics_device.err -Raw | Write-Host }
           if ($Status2 -ne 0) { Write-Host "❌ GraphicsDevice Tests failed!"; $Failed=1 }
           else                { Write-Host "☑️ GraphicsDevice Tests passed!" }
           
           Wait-Process -InputObject $proc3
           $Status3 = $proc3.ExitCode
           Write-Host "`n======== MemoryLifeCycle Tests ========"
-          if (Test-Path vk_memory_lifecycle.log) { Get-Content vk_memory_lifecycle.log -Raw }
-          if (Test-Path vk_memory_lifecycle.err) { Get-Content vk_memory_lifecycle.err -Raw }
+          if (Test-Path vk_memory_lifecycle.log) { Get-Content vk_memory_lifecycle.log -Raw | Write-Host }
+          if (Test-Path vk_memory_lifecycle.err) { Get-Content vk_memory_lifecycle.err -Raw | Write-Host }
           if ($Status3 -ne 0) { Write-Host "❌ MemoryLifeCycle Tests failed!"; $Failed=1 }
           else                { Write-Host "☑️ MemoryLifeCycle Tests passed!" }
           
@@ -621,8 +621,8 @@ jobs:
           
           # 2. Run the last test suite in foreground
           echo "======== Running all tests except Audio, GraphicsDevice, MemoryLifeCycle ========"
-          dotnet test --filter "Category!=Audio&Category!=Song&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll
-          STATUS4=$?
+          STATUS4=0
+          dotnet test --filter "Category!=Audio&Category!=Song&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll || STATUS4=$?
           if [ $STATUS4 -ne 0 ]; then echo "❌ Remaining Tests failed!"; else echo "☑️ Remaining Tests passed!"; fi
           
           # 3. Wait for each background processes to finish and print results

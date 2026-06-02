@@ -747,6 +747,7 @@ static bool SupportsExtension(const std::vector<VkExtensionProperties>& supporte
 MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 {
 #ifndef __APPLE__
+	printf("Initializing volk.\n");
 	auto err = volkInitialize();
 	if (err != VK_SUCCESS)
 	{
@@ -771,9 +772,22 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 	{
 		uint32_t count;
 		vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
+
+#ifdef __APPLE__
+		printf("Found %u Vulkan instance extensions.\n", count);
+#endif
+
 		supportedInstanceExtensions.resize(count);
 
 		vkEnumerateInstanceExtensionProperties(nullptr, &count, supportedInstanceExtensions.data());
+
+#ifdef __APPLE__
+		printf("Supported Vulkan instance extensions:\n");
+		for (const auto& ext : supportedInstanceExtensions)
+		{
+			printf("- %s\n", ext.extensionName);
+		}
+#endif
 	}
 
 	std::vector<const char*> instanceExtensions;
@@ -781,10 +795,23 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 	{
 		uint32_t count;
 		SDL_Vulkan_GetInstanceExtensions(nullptr, &count, nullptr);
+
+#ifdef __APPLE__
+		printf("Found %u Vulkan instance extensions required by SDL.\n", count);
+#endif
+
 		instanceExtensions.resize(count);
 
 		// This call returns the extensions that SDL needs for the created instance.
 		SDL_Vulkan_GetInstanceExtensions(nullptr, &count, instanceExtensions.data());
+
+#ifdef __APPLE__
+		printf("Retrieved Vulkan instance extensions required by SDL:\n");
+		for (const auto& ext : instanceExtensions)
+		{
+			printf("- %s\n", ext);
+		}
+#endif
 	}
 #endif
 
