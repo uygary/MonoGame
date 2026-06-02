@@ -464,7 +464,7 @@ jobs:
           CI: true
         run: |
           # 1. Run tests in background and redirect output to files
-          $proc1 = Start-Process dotnet -ArgumentList "test --filter `"Category=Audio|Category=Song`"" --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_audio.log" -RedirectStandardError "dx12_audio.err" -PassThru -NoNewWindow
+          $proc1 = Start-Process dotnet -ArgumentList "test --filter `"Category=Audio|Category=Song`" --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_audio.log" -RedirectStandardError "dx12_audio.err" -PassThru -NoNewWindow
           $proc2 = Start-Process dotnet -ArgumentList "test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_graphics_device.log" -RedirectStandardError "dx12_graphics_device.err" -PassThru -NoNewWindow
           $proc3 = Start-Process dotnet -ArgumentList "test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll" -RedirectStandardOutput "dx12_memory_lifecycle.log" -RedirectStandardError "dx12_memory_lifecycle.err" -PassThru -NoNewWindow
           
