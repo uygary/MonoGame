@@ -1539,7 +1539,6 @@ static void cleanupSwapChain(MGG_GraphicsDevice* device)
 		if (chain->msImage != nullptr)
 		{
 			vkDestroyImageView(device->device, chain->resolve_view, nullptr);
-			vkDestroyImageView(device->device, chain->target_view, nullptr);
 			vmaDestroyImage(device->allocator, chain->msImage, chain->msAllocation);
 		}
 
