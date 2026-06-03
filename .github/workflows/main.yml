@@ -456,31 +456,10 @@ jobs:
           CI: true
         working-directory: tests-windowsdx12
 
-      # Run Vulkan tests in separate groups.
-      - name: Run Vulkan Audio Tests
+      # Run Vulkan tests.
+      - name: Run Vulkan Tests
         if: runner.environment != 'github-hosted'
-        run: dotnet MonoGame.Tests.dll --filter "Category=Audio|Category=Song" --blame-hang-timeout 5m
-        env:
-          CI: true
-        working-directory: tests-desktopvk
-        
-      - name: Run Vulkan GraphicsDevice Tests
-        if: runner.environment != 'github-hosted'
-        run: dotnet MonoGame.Tests.dll --filter Category=GraphicsDevice --blame-hang-timeout 5m
-        env:
-          CI: true
-        working-directory: tests-desktopvk
-        
-      - name: Run Vulkan MemoryLifeCycle Tests
-        if: runner.environment != 'github-hosted'
-        run: dotnet MonoGame.Tests.dll --filter Category=MemoryLifeCycle --blame-hang-timeout 5m
-        env:
-          CI: true
-        working-directory: tests-desktopvk
-        
-      - name: Run Vulkan All Tests Except Audio, GraphicsDevice, MemoryLifeCycle
-        if: runner.environment != 'github-hosted'
-        run: dotnet MonoGame.Tests.dll --filter "Category!=Audio&Category!=Song&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m
+        run: dotnet MonoGame.Tests.dll --blame-hang-timeout 5m
         env:
           CI: true
         working-directory: tests-desktopvk
