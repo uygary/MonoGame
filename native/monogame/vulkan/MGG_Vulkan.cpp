@@ -773,17 +773,14 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 		uint32_t count;
 		vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
 
-#ifdef __APPLE__
 		fflush(stdout);
 		printf("Found %u Vulkan instance extensions.\n", count);
 		fflush(stdout);
-#endif
 
 		supportedInstanceExtensions.resize(count);
 
 		vkEnumerateInstanceExtensionProperties(nullptr, &count, supportedInstanceExtensions.data());
 
-#ifdef __APPLE__
 		fflush(stdout);
 		printf("Supported Vulkan instance extensions:\n");
 		for (const auto& ext : supportedInstanceExtensions)
@@ -791,35 +788,46 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 			printf("- %s\n", ext.extensionName);
 		}
 		fflush(stdout);
-#endif
 	}
 
 	std::vector<const char*> instanceExtensions;
 #if defined(MG_SDL2)
 	{
-		uint32_t count;
-		SDL_Vulkan_GetInstanceExtensions(nullptr, &count, nullptr);
-
-#ifdef __APPLE__
-		fflush(stdout);
-		printf("Found %u Vulkan instance extensions required by SDL.\n", count);
-		fflush(stdout);
-#endif
-
-		instanceExtensions.resize(count);
-
-		// This call returns the extensions that SDL needs for the created instance.
-		SDL_Vulkan_GetInstanceExtensions(nullptr, &count, instanceExtensions.data());
-
-#ifdef __APPLE__
-		fflush(stdout);
-		printf("Retrieved Vulkan instance extensions required by SDL:\n");
-		for (const auto& ext : instanceExtensions)
+		uint32_t count = 0;
+		if (SDL_Vulkan_GetInstanceExtensions(nullptr, &count, nullptr))
 		{
-			printf("- %s\n", ext);
+			fflush(stdout);
+			printf("Found %u Vulkan instance extensions required by SDL.\n", count);
+			fflush(stdout);
+
+			instanceExtensions.resize(count);
+
+			// This call returns the extensions that SDL needs for the created instance.
+			if (SDL_Vulkan_GetInstanceExtensions(nullptr, &count, instanceExtensions.data()))
+			{
+				fflush(stdout);
+				printf("Retrieved Vulkan instance extensions required by SDL:\n");
+				for (const auto& ext : instanceExtensions)
+				{
+					printf("- %s\n", ext);
+				}
+				fflush(stdout);
+			}
+			else
+			{
+				fflush(stdout);
+				printf("SDL_Vulkan_GetInstanceExtensions failed to populate: %s\n", SDL_GetError());
+				fflush(stdout);
+
+				instanceExtensions.clear();
+			}
 		}
-		fflush(stdout);
-#endif
+		else
+		{
+			fflush(stdout);
+			printf("SDL_Vulkan_GetInstanceExtensions failed to get count: %s\n", SDL_GetError());
+			fflush(stdout);
+		}
 	}
 #endif
 
