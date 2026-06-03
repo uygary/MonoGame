@@ -472,28 +472,28 @@ jobs:
       # Run Vulkan tests in separate groups.
       - name: Run Vulkan Audio Tests
         if: runner.environment != 'github-hosted'
-        run: dotnet MonoGame.Tests.dll --where="Category == Audio || Category == Song" --timeout=300000
+        run: dotnet MonoGame.Tests.dll --where="Category == Audio || Category == Song" --timeout=300000 --labels=Before
         env:
           CI: true
         working-directory: tests-desktopvk
         
       - name: Run Vulkan GraphicsDevice Tests
         if: runner.environment != 'github-hosted'
-        run: dotnet MonoGame.Tests.dll --where="Category == GraphicsDevice" --timeout=300000
+        run: dotnet MonoGame.Tests.dll --where="Category == GraphicsDevice" --timeout=300000 --labels=Before
         env:
           CI: true
         working-directory: tests-desktopvk
         
       - name: Run Vulkan MemoryLifeCycle Tests
         if: runner.environment != 'github-hosted'
-        run: dotnet MonoGame.Tests.dll --where="Category == MemoryLifeCycle" --timeout=300000
+        run: dotnet MonoGame.Tests.dll --where="Category == MemoryLifeCycle" --timeout=300000 --labels=Before
         env:
           CI: true
         working-directory: tests-desktopvk
         
       - name: Run Vulkan All Tests Except Audio, GraphicsDevice, MemoryLifeCycle
         if: runner.environment != 'github-hosted'
-        run: dotnet MonoGame.Tests.dll --where="Category != Audio && Category != Song && Category != GraphicsDevice && Category != MemoryLifeCycle" --timeout=600000
+        run: dotnet MonoGame.Tests.dll --where="Category != Audio && Category != Song && Category != GraphicsDevice && Category != MemoryLifeCycle" --timeout=600000  --labels=Before
         env:
           CI: true
         working-directory: tests-desktopvk
