@@ -381,21 +381,6 @@ jobs:
         run: |
           brew update
 
-      - name: Install Vulkan SDK
-        uses: humbletim/setup-vulkan-sdk@v1.2.1
-        if: runner.os != 'macos'
-        with:
-          vulkan-query-version: 1.4.309.0
-          vulkan-use-cache: true
-          vulkan-components: 'Vulkan-Headers, Vulkan-Loader'
-
-      - name: Install Full Vulkan SDK
-        if: runner.os == 'macos'
-        uses: humbletim/install-vulkan-sdk@v1.2
-        with:
-          version: 1.4.309.0
-          cache: true
-
       - name: Disable Annotations
         run: echo "::remove-matcher owner=csc::"
 
