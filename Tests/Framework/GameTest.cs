@@ -211,6 +211,7 @@ namespace MonoGame.Tests {
             }
 
             [Test]
+            [RunOnUI]
 #if DESKTOPGL
             [Ignore("This crashes inside SDL on Mac!")]
 #endif
