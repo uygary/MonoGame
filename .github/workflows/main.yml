@@ -381,6 +381,11 @@ jobs:
         run: |
           brew update
 
+      - name: Check Vulkan
+        if: runner.environment != 'github-hosted' && runner.os == 'macos'
+        run: |
+          vulkaninfo
+
       - name: Disable Annotations
         run: echo "::remove-matcher owner=csc::"
 
