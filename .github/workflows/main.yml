@@ -356,6 +356,16 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Free disk space
+        if: runner.environment == 'github-hosted' && runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          android: false
+          dotnet: false 
+          docker-images: true
+          large-packages: true
+          swap-storage: true
+
       - name: Generate global.json
         run: |
           echo '{ "sdk": { "version": "${{ env.DotnetVersion }}", "workloadVersion": "${{ env.DotnetVersion }}" } }' > global.json
@@ -370,6 +380,24 @@ jobs:
         if: runner.environment == 'github-hosted' && runner.os == 'macos'
         run: |
           brew update
+
+      - name: Install Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
+        if: runner.os != 'macos'
+        with:
+          vulkan-query-version: 1.4.309.0
+          vulkan-use-cache: true
+          vulkan-components: 'Vulkan-Headers, Vulkan-Loader'
+
+      - name: Install Full Vulkan SDK
+        if: runner.os == 'macos'
+        uses: humbletim/install-vulkan-sdk@v1.2
+        with:
+          version: 1.4.309.0
+          cache: true
+
+      - name: Disable Annotations
+        run: echo "::remove-matcher owner=csc::"
 
       - name: Setup Wine
         if: runner.environment == 'github-hosted'
