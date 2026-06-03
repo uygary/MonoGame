@@ -430,28 +430,28 @@ jobs:
       # Run DirectX 12 tests in separate groups.
       - name: Run DirectX 12 Audio Tests
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        run: dotnet test --filter "Category=Audio|Category=Song" --blame-hang-timeout 5m MonoGame.Tests.dll
+        run: dotnet MonoGame.Tests.dll --filter "Category=Audio|Category=Song" --blame-hang-timeout 5m
         env:
           CI: true
         working-directory: tests-windowsdx12
         
       - name: Run DirectX 12 GraphicsDevice Tests
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        run: dotnet test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll
+        run: dotnet MonoGame.Tests.dll --filter Category=GraphicsDevice --blame-hang-timeout 5m
         env:
           CI: true
         working-directory: tests-windowsdx12
         
       - name: Run DirectX 12 MemoryLifeCycle Tests
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        run: dotnet test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll
+        run: dotnet MonoGame.Tests.dll --filter Category=MemoryLifeCycle --blame-hang-timeout 5m
         env:
           CI: true
         working-directory: tests-windowsdx12
         
       - name: Run DirectX 12 All Tests Except Audio, GraphicsDevice, MemoryLifeCycle
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        run: dotnet test --filter "Category!=Audio&Category!=Song&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll
+        run: dotnet MonoGame.Tests.dll --filter "Category!=Audio&Category!=Song&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m
         env:
           CI: true
         working-directory: tests-windowsdx12
@@ -459,28 +459,28 @@ jobs:
       # Run Vulkan tests in separate groups.
       - name: Run Vulkan Audio Tests
         if: runner.environment != 'github-hosted'
-        run: dotnet test --filter "Category=Audio|Category=Song" --blame-hang-timeout 5m MonoGame.Tests.dll
+        run: dotnet MonoGame.Tests.dll --filter "Category=Audio|Category=Song" --blame-hang-timeout 5m
         env:
           CI: true
         working-directory: tests-desktopvk
         
       - name: Run Vulkan GraphicsDevice Tests
         if: runner.environment != 'github-hosted'
-        run: dotnet test --filter Category=GraphicsDevice --blame-hang-timeout 5m MonoGame.Tests.dll
+        run: dotnet MonoGame.Tests.dll --filter Category=GraphicsDevice --blame-hang-timeout 5m
         env:
           CI: true
         working-directory: tests-desktopvk
         
       - name: Run Vulkan MemoryLifeCycle Tests
         if: runner.environment != 'github-hosted'
-        run: dotnet test --filter Category=MemoryLifeCycle --blame-hang-timeout 5m MonoGame.Tests.dll
+        run: dotnet MonoGame.Tests.dll --filter Category=MemoryLifeCycle --blame-hang-timeout 5m
         env:
           CI: true
         working-directory: tests-desktopvk
         
       - name: Run Vulkan All Tests Except Audio, GraphicsDevice, MemoryLifeCycle
         if: runner.environment != 'github-hosted'
-        run: dotnet test --filter "Category!=Audio&Category!=Song&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m MonoGame.Tests.dll
+        run: dotnet MonoGame.Tests.dll --filter "Category!=Audio&Category!=Song&Category!=GraphicsDevice&Category!=MemoryLifeCycle" --blame-hang-timeout 5m
         env:
           CI: true
         working-directory: tests-desktopvk
