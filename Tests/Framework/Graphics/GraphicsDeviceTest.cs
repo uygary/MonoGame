@@ -635,6 +635,11 @@ namespace MonoGame.Tests.Graphics
 #endif
             foreach (var format in Enum.GetValues(typeof(SurfaceFormat)).Cast<SurfaceFormat>())
             {
+#if VULKAN
+                // Skip the Bgr565 on Mac on Vulkan
+                if (format == SurfaceFormat.Bgr565 || format == SurfaceFormat.Bgra5551 || format == SurfaceFormat.Bgra4444)
+                    continue;
+#endif
 #if !MOBILE
                 // Skip the mobile formats on non-mobile platforms.
                 if (format > SurfaceFormat.Dxt5SRgb)

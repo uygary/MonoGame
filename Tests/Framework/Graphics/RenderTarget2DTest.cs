@@ -149,7 +149,7 @@ namespace MonoGame.Tests.Graphics
         {
             const int size = 100;
             const int size2 = size * size;
-            var rt = new RenderTarget2D(gd, size, size, false, SurfaceFormat.Color, DepthFormat.None, 8, RenderTargetUsage.DiscardContents);
+            var rt = new RenderTarget2D(gd, size, size, false, SurfaceFormat.Color, DepthFormat.None, 4, RenderTargetUsage.DiscardContents);
             var data = new Color[size2];
             // create some arbitrary data here
             for (var i = 0; i < size2; i++)
