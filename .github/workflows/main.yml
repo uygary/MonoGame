@@ -429,10 +429,12 @@ jobs:
           name: tests-desktopvk-${{ matrix.platform }}
           path: tests-desktopvk
 
-      - name: Fix up Mac Binaries
+      - name: Check Vulkan SDK
         if: runner.environment != 'github-hosted' && runner.os == 'macos'
         run: |
-          xattr -r -d com.apple.quarantine *
+           echo $VULKAN_SDK
+           ls -l /usr/local/lib/libvulkan.1.dylib
+           ls $VULKAN_SDK/macOS/lib/libvulkan.1.dylib
         working-directory: tests-desktopvk
 
       # Run the DirectX 11 tests in two steps: first the audio, then the rest.
