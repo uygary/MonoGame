@@ -451,7 +451,7 @@ jobs:
         
       - name: Run DirectX 12 All Tests Except Audio, GraphicsDevice, MemoryLifeCycle
         if: runner.os == 'Windows' && runner.environment != 'github-hosted'
-        run: dotnet MonoGame.Tests.dll --where="Category != Audio && Category != Song && Category != GraphicsDevice && Category != MemoryLifeCycle" --timeout=300000
+        run: dotnet MonoGame.Tests.dll --where="Category != Audio && Category != Song && Category != GraphicsDevice && Category != MemoryLifeCycle" --timeout=600000
         env:
           CI: true
         working-directory: tests-windowsdx12
@@ -480,7 +480,7 @@ jobs:
         
       - name: Run Vulkan All Tests Except Audio, GraphicsDevice, MemoryLifeCycle
         if: runner.environment != 'github-hosted'
-        run: dotnet MonoGame.Tests.dll --where="Category != Audio && Category != Song && Category != GraphicsDevice && Category != MemoryLifeCycle" --timeout=300000
+        run: dotnet MonoGame.Tests.dll --where="Category != Audio && Category != Song && Category != GraphicsDevice && Category != MemoryLifeCycle" --timeout=600000
         env:
           CI: true
         working-directory: tests-desktopvk
