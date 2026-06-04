@@ -637,8 +637,11 @@ namespace MonoGame.Tests.Graphics
             {
 #if VULKAN
                 // Skip the Bgr565 on Mac on Vulkan
-                if (format == SurfaceFormat.Bgr565 || format == SurfaceFormat.Bgra5551 || format == SurfaceFormat.Bgra4444)
+                if (OperatingSystem.IsMacOS()
+                    && format is SurfaceFormat.Bgr565 or SurfaceFormat.Bgra5551 or SurfaceFormat.Bgra4444)
+                {
                     continue;
+                }
 #endif
 #if !MOBILE
                 // Skip the mobile formats on non-mobile platforms.
