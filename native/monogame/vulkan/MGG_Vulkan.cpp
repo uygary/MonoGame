@@ -819,7 +819,7 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 				printf("SDL_Vulkan_GetInstanceExtensions failed to populate: %s\n", SDL_GetError());
 				fflush(stdout);
 
-				instanceExtensions.clear();
+				return nullptr;
 			}
 		}
 		else
@@ -827,6 +827,8 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 			fflush(stdout);
 			printf("SDL_Vulkan_GetInstanceExtensions failed to get count: %s\n", SDL_GetError());
 			fflush(stdout);
+
+			return nullptr;
 		}
 	}
 #endif
@@ -1696,7 +1698,14 @@ void MGVK_RecreateSwapChain(
 		if (device->surface != nullptr)
 			vkDestroySurfaceKHR(device->instance, device->surface, nullptr);
 
-		SDL_Vulkan_CreateSurface(sdl_window, device->instance, &device->surface);
+		if (!SDL_Vulkan_CreateSurface(sdl_window, device->instance, &device->surface))
+		{
+			printf("SDL_Vulkan_CreateSurface failed: %s\n", SDL_GetError());
+			fflush(stdout);
+
+			device->surface = VK_NULL_HANDLE;
+			return;
+		}
 		VK_SET_OBJECT_NAME(device->device, (uint64_t)device->surface, VK_OBJECT_TYPE_SURFACE_KHR, "MGG_GraphicsDevice.surface");
 
 		device->window = sdl_window;
@@ -2018,6 +2027,14 @@ void MGVK_RecreateSwapChain(MGG_GraphicsDevice* device)
 {
 	cleanupSwapChain(device);
 
+	if (device->window == nullptr)
+	{
+		printf("Cannot recreate swapchain: window is null!\n");
+		fflush(stdout);
+
+		return;
+	}
+
 	MGVK_RecreateSwapChain(
 		device,
 		device->window,
@@ -2117,6 +2134,14 @@ mgint MGG_GraphicsDevice_BeginFrame(MGG_GraphicsDevice* device)
 	{
 		printf("Swapchain was null before acquiring a frame. This shouldn't happen.\n");
 		MGVK_RecreateSwapChain(device);
+
+		if (device->swapchain == VK_NULL_HANDLE)
+		{
+			printf("Couldn't recreate swapchain!\n");
+			fflush(stdout);
+
+			return -1;
+		}
 	}
 
 	VkResult res;
