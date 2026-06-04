@@ -434,6 +434,7 @@ jobs:
         run: |
            ls -l /usr/local/lib/libvulkan.1.dylib
            file /usr/local/lib/libvulkan.1.dylib
+           echo $DYLD_LIBRARY_PATH
         working-directory: tests-desktopvk
 
       # Run the DirectX 11 tests in two steps: first the audio, then the rest.
