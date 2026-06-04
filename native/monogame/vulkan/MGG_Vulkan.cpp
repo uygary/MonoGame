@@ -793,6 +793,12 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 	std::vector<const char*> instanceExtensions;
 #if defined(MG_SDL2)
 	{
+		if (SDL_Vulkan_LoadLibrary(nullptr) != 0)
+		{
+			printf("SDL_Vulkan_LoadLibrary failed: %s\n", SDL_GetError());
+			return nullptr;   // -> C# surfaces NoSuitableGraphicsDeviceException instead of crashing
+		}
+
 		uint32_t count = 0;
 		if (SDL_Vulkan_GetInstanceExtensions(nullptr, &count, nullptr))
 		{
