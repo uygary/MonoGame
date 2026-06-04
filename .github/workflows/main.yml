@@ -432,9 +432,8 @@ jobs:
       - name: Check Vulkan SDK
         if: runner.environment != 'github-hosted' && runner.os == 'macos'
         run: |
-           echo $VULKAN_SDK
            ls -l /usr/local/lib/libvulkan.1.dylib
-           ls $VULKAN_SDK/macOS/lib/libvulkan.1.dylib
+           file /usr/local/lib/libvulkan.1.dylib
         working-directory: tests-desktopvk
 
       # Run the DirectX 11 tests in two steps: first the audio, then the rest.
