@@ -42,11 +42,13 @@ namespace MonoGame.Tests.Graphics
         [RunOnUI]
         public void GenerateMips()
         {
+#if VULKAN
             if (OperatingSystem.IsMacOS())
             {
                 // TODO: Fix on macOS.
                 return;
             }
+#endif
 
             // Please note:
             // The reference image was created with the MonoGame/Windows test.
