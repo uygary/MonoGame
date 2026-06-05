@@ -19,7 +19,7 @@ namespace MonoGame.Tests.Graphics
         #region Native Helpers
 
         /// <summary>
-        /// USed to retrieve the frame field from a texture.
+        /// Used to retrieve the frame field from a texture.
         /// MGG_Texture layout is different in Vulkan and DX12.
         /// </summary>
         /// <remarks>If either layout changes, this would need to be updated!</remarks>
@@ -27,7 +27,7 @@ namespace MonoGame.Tests.Graphics
         {
             var textureHandle = (uint*)texture.Handle;
 #if VULKAN
-            return (int)textureHandle[1]; // skip writeFrame
+            return (int)textureHandle[1]; // Skip writeFrame.
 #elif DIRECTX12
             return (int)textureHandle[0];
 #else
