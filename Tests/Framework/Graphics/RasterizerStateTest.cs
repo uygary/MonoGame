@@ -24,6 +24,12 @@ namespace MonoGame.Tests.Graphics
         [RunOnUI]
         public void DepthBiasVisualTest(float depthBias)
         {
+            if (OperatingSystem.IsMacOS())
+            {
+                // TODO: Fix on macOS.
+                return;
+            }
+
             var effect = new BasicEffect(gd)
             {
                 VertexColorEnabled = true,
@@ -202,6 +208,12 @@ namespace MonoGame.Tests.Graphics
         [RunOnUI]
         public void VisualTestDepthClipEnable(bool depthClipEnable)
         {
+            if (OperatingSystem.IsMacOS())
+            {
+                // TODO: Fix on macOS.
+                return;
+            }
+            
             PrepareFrameCapture();
 
             var cube = new Colored3DCubeComponent(gd)

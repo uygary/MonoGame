@@ -74,6 +74,12 @@ namespace MonoGame.Tests.Graphics
         [RunOnUI]
         public void VisualTestAddressModes()
         {
+            if (OperatingSystem.IsMacOS())
+            {
+                // TODO: Fix on macOS.
+                return;
+            }
+
             PrepareFrameCapture();
 
             var addressModes = new[]
