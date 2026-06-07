@@ -1587,6 +1587,8 @@ void MGG_GraphicsDevice_Destroy(MGG_GraphicsDevice* device)
 	// Prevents some exceptions while shutting down.
 	vkDeviceWaitIdle(device->device);
 
+	MGVK_WaitPendingTransfers(device, nullptr);
+
 	MGVK_CleanupPendingTransfers(device);
 
 	MGVK_CleanupSwapChain(device);
@@ -2327,6 +2329,8 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 
 			device->destroyTextures.pop();
 
+			MGVK_WaitPendingTransfers(device, texture);
+
 			if (texture->isTarget)
 			{
 				MGVK_DestroyPipelines(device, [texture](const MGVK_PipelineState& s)
@@ -2412,7 +2416,7 @@ void MGVK_WaitPendingTransfers(MGG_GraphicsDevice* device, MGG_Texture* texture)
 	for (size_t i = 0; i < transfers.size();)
 	{
 		auto& pending = transfers[i];
-		if (pending.owner != texture)
+		if (texture != nullptr && pending.owner != texture)
 		{
 			i++;
 			continue;
