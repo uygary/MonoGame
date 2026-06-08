@@ -252,6 +252,9 @@ struct MGG_GraphicsDevice
 	uint32_t graphicsQueueFamily = 0;
 	VkQueue queue = VK_NULL_HANDLE;
 	VkCommandPool cmdPool = VK_NULL_HANDLE;
+
+	std::recursive_mutex transferMutex;
+	VkCommandPool transferPool = VK_NULL_HANDLE;
 	std::vector<MGVK_Transfer> pendingTransfers;
 
 	VmaAllocator allocator = VK_NULL_HANDLE;
@@ -484,7 +487,7 @@ struct MGG_GraphicsSystem
 {
 	VkInstance instance;
 	mgbool supportsPhysicalDeviceProperties2EXT;
-
+	VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
 	std::vector<MGG_GraphicsAdapter*> adapters;
 };
 
@@ -494,8 +497,8 @@ static MGG_Buffer* MGVK_Buffer_Create(MGG_GraphicsDevice* device, MGBufferType t
 static void MGVK_DestroyPipelines(MGG_GraphicsDevice* device, std::function<bool(const MGVK_PipelineState&)> compare);
 static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint currentFrame, mgbyte free_all);
 static void MGVK_UpdateRenderPass(MGG_GraphicsDevice* device, FrameCounter currentFrame, VkCommandBuffer commandBuffer);
-static VkCommandBuffer MGVK_BeginNewCommandBuffer(MGG_GraphicsDevice* device);
-static void MGVK_ExecuteAndFreeCommandBuffer(MGG_GraphicsDevice* device, VkCommandBuffer commandBuffer);
+static VkCommandBuffer MGVK_BeginNewCommandBuffer(MGG_GraphicsDevice* device, VkCommandPool pool = VK_NULL_HANDLE);
+static void MGVK_ExecuteAndFreeCommandBuffer(MGG_GraphicsDevice* device, VkCommandBuffer commandBuffer, VkCommandPool pool = VK_NULL_HANDLE);
 static void MGVK_ProcessDescriptorCaches(MGG_GraphicsDevice* device, FrameCounter currentFrame);
 static void MGVK_CmdTransitionImageLayout(
 	VkCommandBuffer cmd,
@@ -1066,18 +1069,21 @@ static MGG_Texture* CreateDepthTexture(MGG_GraphicsDevice* device, VkFormat form
 	mggCreateImage(device, &create_info, texture);
     VK_SET_OBJECT_NAME(device->device, texture->image, VK_OBJECT_TYPE_IMAGE, "CreateDepthTexture::texture.image");
 
-	std::lock_guard lock(device->queueMutex);
-	VkCommandBuffer cmd = MGVK_BeginNewCommandBuffer(device);
-	MGVK_CmdTransitionImageLayout(
-        cmd,
-        texture->image,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        optimalLayout,
-        aspectMask
-    );
+	{
+		std::lock_guard lock(device->transferMutex);
 
-	MGVK_ExecuteAndFreeCommandBuffer(device, cmd);
-	
+		VkCommandBuffer cmd = MGVK_BeginNewCommandBuffer(device, device->transferPool);
+		MGVK_CmdTransitionImageLayout(
+			cmd,
+			texture->image,
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			optimalLayout,
+			aspectMask
+		);
+
+		MGVK_ExecuteAndFreeCommandBuffer(device, cmd, device->transferPool);
+	}
+
 	texture->layouts[0] = optimalLayout;
     texture->optimal_layout = optimalLayout;
 
@@ -1196,12 +1202,12 @@ static VkBufferUsageFlags ToUsage(MGBufferType type)
 	}
 }
 
-static VkCommandBuffer MGVK_BeginNewCommandBuffer(MGG_GraphicsDevice* device)
+static VkCommandBuffer MGVK_BeginNewCommandBuffer(MGG_GraphicsDevice* device, VkCommandPool pool)
 {
 	VkCommandBufferAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandPool = device->cmdPool;
+	allocInfo.commandPool = pool ? pool : device->cmdPool;
 	allocInfo.commandBufferCount = 1;
 
 	VkCommandBuffer commandBuffer;
@@ -1217,7 +1223,7 @@ static VkCommandBuffer MGVK_BeginNewCommandBuffer(MGG_GraphicsDevice* device)
 	return commandBuffer;
 }
 
-static void MGVK_ExecuteAndFreeCommandBuffer(MGG_GraphicsDevice* device, VkCommandBuffer commandBuffer)
+static void MGVK_ExecuteAndFreeCommandBuffer(MGG_GraphicsDevice* device, VkCommandBuffer commandBuffer, VkCommandPool pool)
 {
 	vkEndCommandBuffer(commandBuffer);
 
@@ -1230,17 +1236,22 @@ static void MGVK_ExecuteAndFreeCommandBuffer(MGG_GraphicsDevice* device, VkComma
 		VK_SET_OBJECT_NAME(device->device, renderFence, VK_OBJECT_TYPE_FENCE, "MGVK_ExecuteAndFreeCommandBuffer.renderFence");
 	}
 
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commandBuffer;
+	{
+		std::lock_guard lock(device->queueMutex);
 
-	std::lock_guard lock(device->queueMutex);
-	vkQueueSubmit(device->queue, 1, &submitInfo, renderFence);
+		VkSubmitInfo submitInfo = {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+		vkQueueSubmit(device->queue, 1, &submitInfo, renderFence);
+	}
 
 	vkWaitForFences(device->device, 1, &renderFence, VK_TRUE, UINT64_MAX);
 	vkDestroyFence(device->device, renderFence, nullptr);
-	vkFreeCommandBuffers(device->device, device->cmdPool, 1, &commandBuffer);
+
+	pool = pool ? pool : device->cmdPool;
+	vkFreeCommandBuffers(device->device, pool, 1, &commandBuffer);
 }
 
 MGG_GraphicsDevice* MGG_GraphicsDevice_Create(MGG_GraphicsSystem* system, MGG_GraphicsAdapter* adapter)
@@ -1421,6 +1432,11 @@ MGG_GraphicsDevice* MGG_GraphicsDevice_Create(MGG_GraphicsSystem* system, MGG_Gr
 	res = vkCreateCommandPool(device->device, &cmdPoolInfo, nullptr, &device->cmdPool);
 	VK_CHECK_RESULT(res);
 	VK_SET_OBJECT_NAME(device->device, device->cmdPool, VK_OBJECT_TYPE_COMMAND_POOL, "MGG_GraphicsDevice.cmdPool");
+
+	// Create the command pool for graphics transfers.
+	res = vkCreateCommandPool(device->device, &cmdPoolInfo, nullptr, &device->transferPool);
+	VK_CHECK_RESULT(res);
+	VK_SET_OBJECT_NAME(device->device, device->transferPool, VK_OBJECT_TYPE_COMMAND_POOL, "MGG_GraphicsDevice.transferPool");
 
 	// Create the pipeline cache which is used at runtime
 	// to speed up pipeline creation.
@@ -1620,6 +1636,7 @@ void MGG_GraphicsDevice_Destroy(MGG_GraphicsDevice* device)
 		vkDestroySemaphore(device->device, swap.renderCompleteSemaphore, nullptr);
 	}
 
+	vkDestroyCommandPool(device->device, device->transferPool, nullptr);
 	vkDestroyCommandPool(device->device, device->cmdPool, nullptr);
 
 	for (int i=0; i < 3; i++)
@@ -2329,7 +2346,10 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 
 			device->destroyTextures.pop();
 
-			MGVK_WaitPendingTransfers(device, texture);
+			{
+				std::lock_guard lock(device->transferMutex);
+				MGVK_WaitPendingTransfers(device, texture);
+			}
 
 			if (texture->isTarget)
 			{
@@ -2424,7 +2444,7 @@ void MGVK_WaitPendingTransfers(MGG_GraphicsDevice* device, MGG_Texture* texture)
 
 		vkWaitForFences(device->device, 1, &pending.done, VK_TRUE, UINT64_MAX);
 
-		vkFreeCommandBuffers(device->device, device->cmdPool, 1, &pending.cmd);
+		vkFreeCommandBuffers(device->device, device->transferPool, 1, &pending.cmd);
 		vmaDestroyBuffer(device->allocator, pending.staging.buffer, pending.staging.allocation);
 		vkDestroyFence(device->device, pending.done, nullptr);
 
@@ -2436,8 +2456,8 @@ void MGVK_WaitPendingTransfers(MGG_GraphicsDevice* device, MGG_Texture* texture)
 
 void MGVK_CleanupPendingTransfers(MGG_GraphicsDevice* device)
 {
+	bool reset = false;
 	auto& transfers = device->pendingTransfers;
-
 	for (size_t i = 0; i < transfers.size(); )
 	{
 		auto& pending = transfers[i];
@@ -2448,12 +2468,18 @@ void MGVK_CleanupPendingTransfers(MGG_GraphicsDevice* device)
 			continue;
 		}
 
-		vkFreeCommandBuffers(device->device, device->cmdPool, 1, &pending.cmd);
+		vkFreeCommandBuffers(device->device, device->transferPool, 1, &pending.cmd);
 		vmaDestroyBuffer(device->allocator, pending.staging.buffer, pending.staging.allocation);
 		vkDestroyFence(device->device, pending.done, nullptr);
 
 		transfers[i] = transfers.back();
 		transfers.pop_back();
+		reset = true;
+	}
+
+	if (reset && transfers.size() == 0)
+	{
+		vkResetCommandPool(device->device, device->transferPool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
 	}
 }
 
@@ -2503,9 +2529,12 @@ void MGG_GraphicsDevice_Present(MGG_GraphicsDevice* device, mgint currentFrame, 
 		presentInfo.pSwapchains = &device->swapchain;
 		presentInfo.pImageIndices = &frame.image_index;
 		res = vkQueuePresentKHR(device->queue, &presentInfo);
+	}
 
-		// Cleanup any finished transfers as they may be
-		// done after the block waiting for the present.
+	// Cleanup any finished transfers as they may be
+	// done after the block waiting for the present.
+	{
+		std::lock_guard lock(device->transferMutex);
 		MGVK_CleanupPendingTransfers(device);
 	}
 
@@ -5019,12 +5048,17 @@ MGG_Texture* MGG_Texture_Create(
 	// Start the texture in optimal layout mode.
 	texture->optimal_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	std::lock_guard lock(device->queueMutex);
-	VkCommandBuffer cmd = MGVK_BeginNewCommandBuffer(device);
-	MGVK_CmdTransitionImageLayout(cmd, texture->image,
-		VK_IMAGE_LAYOUT_UNDEFINED, texture->optimal_layout,
-		VK_IMAGE_ASPECT_COLOR_BIT, 0, mipmaps, 0, slices);
-	MGVK_ExecuteAndFreeCommandBuffer(device, cmd);
+	VkCommandBuffer cmd;
+	{
+		std::lock_guard lock(device->transferMutex);
+
+		cmd = MGVK_BeginNewCommandBuffer(device, device->transferPool);
+		MGVK_CmdTransitionImageLayout(cmd, texture->image,
+			VK_IMAGE_LAYOUT_UNDEFINED, texture->optimal_layout,
+			VK_IMAGE_ASPECT_COLOR_BIT, 0, mipmaps, 0, slices);
+
+		MGVK_ExecuteAndFreeCommandBuffer(device, cmd, device->transferPool);
+	}
 	for (int i = 0; i < mipmaps; i++)
 		texture->layouts[i] = texture->optimal_layout;
 
@@ -5092,21 +5126,24 @@ MGG_Texture* MGG_RenderTarget_Create(
 		texture->target_view = CreateImageView(device, texture, create_info.mipLevels);
 		VK_SET_OBJECT_NAME(device->device, texture->target_view, VK_OBJECT_TYPE_IMAGE_VIEW, "MGG_Texture.target_view (RenderTarget id: %llu)", texture->id);
 
-		std::lock_guard lock(device->queueMutex);
-		VkCommandBuffer cmd = MGVK_BeginNewCommandBuffer(device);
-        MGVK_CmdTransitionImageLayout(
-            cmd,
-            texture->image,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-			startLayout,
-            DetermineAspectMask(create_info.format),
-			0,
-			mipmaps,
-			0,
-			slices
-        );
+		{
+			std::lock_guard lock(device->transferMutex);
 
-        MGVK_ExecuteAndFreeCommandBuffer(device, cmd);
+			VkCommandBuffer cmd = MGVK_BeginNewCommandBuffer(device, device->transferPool);
+			MGVK_CmdTransitionImageLayout(
+				cmd,
+				texture->image,
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				startLayout,
+				DetermineAspectMask(create_info.format),
+				0,
+				mipmaps,
+				0,
+				slices
+			);
+
+			MGVK_ExecuteAndFreeCommandBuffer(device, cmd, device->transferPool);
+		}
 
 		for (int i = 0; i < mipmaps; i++)
 			texture->layouts[i] = startLayout;
@@ -5192,7 +5229,7 @@ void MGG_Texture_SetData(MGG_GraphicsDevice* device, MGG_Texture* texture, mgint
 	assert(data != nullptr);
 	assert(dataBytes > 0);
 
-	// TODO: Pool staging buffers maybe?
+	// TODO: Pool staging buffers or used discarded ones?
 
 	MGG_Buffer buffer;
 	MGVK_BufferCreate(device, dataBytes, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, &buffer);
@@ -5203,35 +5240,33 @@ void MGG_Texture_SetData(MGG_GraphicsDevice* device, MGG_Texture* texture, mgint
 	memcpy(dest, data, dataBytes);
 	vmaUnmapMemory(device->allocator, buffer.allocation);
 
-	// Get a command buffer from the device in a thread safe way.
+	// Get a command buffer and fill it... only one thread at a time
+	// can do this.  Eventually we could have multiple transfer pools.
+	MGVK_Transfer transfer;
 	VkCommandBuffer cmd;
 	{
-		std::lock_guard lock(device->queueMutex);
-		cmd = MGVK_BeginNewCommandBuffer(device);
-	}
+		std::lock_guard lock(device->transferMutex);
+		cmd = MGVK_BeginNewCommandBuffer(device, device->transferPool);
 
-	MGVK_CmdTransitionImageLayout(cmd, texture->image, texture->layouts[level], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, level, 1, slice, 1);
-	texture->layouts[level] = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	MGVK_CmdCopyBufferToImage(cmd, buffer.buffer, texture->image, x, y, z, level, slice, width, height, depth);
-	MGVK_CmdTransitionImageLayout(cmd, texture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, texture->optimal_layout, VK_IMAGE_ASPECT_COLOR_BIT, level, 1, slice, 1);
-	texture->layouts[level] = texture->optimal_layout;
+		MGVK_CmdTransitionImageLayout(cmd, texture->image, texture->layouts[level], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, level, 1, slice, 1);
+		texture->layouts[level] = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		MGVK_CmdCopyBufferToImage(cmd, buffer.buffer, texture->image, x, y, z, level, slice, width, height, depth);
+		MGVK_CmdTransitionImageLayout(cmd, texture->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, texture->optimal_layout, VK_IMAGE_ASPECT_COLOR_BIT, level, 1, slice, 1);
+		texture->layouts[level] = texture->optimal_layout;
 
-	MGVK_Transfer transfer;
-	transfer.owner = texture;
-	transfer.cmd = cmd;
-	transfer.staging = buffer;
+		transfer.owner = texture;
+		transfer.cmd = cmd;
+		transfer.staging = buffer;
 
-	VkFenceCreateInfo fenceCreateInfo = {};
-	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fenceCreateInfo.flags = 0;
-	vkCreateFence(device->device, &fenceCreateInfo, nullptr, &transfer.done);
-	VK_SET_OBJECT_NAME(device->device, transfer.done, VK_OBJECT_TYPE_FENCE, "MGVK_Transfer.done");
-
-	{
-		std::lock_guard lock(device->queueMutex);
+		VkFenceCreateInfo fenceCreateInfo = {};
+		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceCreateInfo.flags = 0;
+		vkCreateFence(device->device, &fenceCreateInfo, nullptr, &transfer.done);
+		VK_SET_OBJECT_NAME(device->device, transfer.done, VK_OBJECT_TYPE_FENCE, "MGVK_Transfer.done");
 
 		vkEndCommandBuffer(cmd);
 
+		std::lock_guard lock2(device->queueMutex);
 		VkSubmitInfo submit = {};
 		submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		submit.pNext = nullptr;
@@ -5256,9 +5291,12 @@ void MGG_Texture_GetData(MGG_GraphicsDevice* device, MGG_Texture* texture, mgint
 
 	bool restart_frame = false;
 
-	std::lock_guard lock(device->queueMutex);
+	{
+		std::lock_guard lock(device->transferMutex);
+		MGVK_WaitPendingTransfers(device, texture);
+	}
 
-	MGVK_WaitPendingTransfers(device, texture);
+	std::lock_guard lock(device->queueMutex);
 
 	auto& frame = device->frames[device->frameIndex];
 
@@ -5278,11 +5316,14 @@ void MGG_Texture_GetData(MGG_GraphicsDevice* device, MGG_Texture* texture, mgint
 	VkImageLayout originalLayout = texture->layouts[level];
 	VkImageAspectFlags aspectMask = DetermineAspectMask(texture->info.format);
 
-	VkCommandBuffer copyCmd = MGVK_BeginNewCommandBuffer(device);
-	MGVK_CmdTransitionImageLayout(copyCmd, texture->image, originalLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, aspectMask, level, 1, slice, 1);
-	MGVK_CmdCopyImageToBuffer(copyCmd, texture->image, buffer.buffer, x, y, z, level, slice, width, height, depth, aspectMask);
-	MGVK_CmdTransitionImageLayout(copyCmd, texture->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, originalLayout, aspectMask, level, 1, slice, 1);
-	MGVK_ExecuteAndFreeCommandBuffer(device, copyCmd);
+	{
+		std::lock_guard lock(device->transferMutex);
+		VkCommandBuffer copyCmd = MGVK_BeginNewCommandBuffer(device, device->transferPool);
+		MGVK_CmdTransitionImageLayout(copyCmd, texture->image, originalLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, aspectMask, level, 1, slice, 1);
+		MGVK_CmdCopyImageToBuffer(copyCmd, texture->image, buffer.buffer, x, y, z, level, slice, width, height, depth, aspectMask);
+		MGVK_CmdTransitionImageLayout(copyCmd, texture->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, originalLayout, aspectMask, level, 1, slice, 1);
+		MGVK_ExecuteAndFreeCommandBuffer(device, copyCmd, device->transferPool);
+	}
 
 	void* src;
 	vmaMapMemory(device->allocator, buffer.allocation, &src);
