@@ -4969,17 +4969,18 @@ void MGG_Buffer_SetData(MGG_GraphicsDevice* device, MGG_Buffer*& buffer, mgint o
 
 void MGG_Buffer_GetData(MGG_GraphicsDevice* device, MGG_Buffer* buffer, mgint offset, mgbyte* data, mgint dataCount, mgint dataBytes, mgint dataStride)
 {
-	assert(device != nullptr);
-	assert(buffer != nullptr);
-	assert(data != nullptr);
+    assert(device != nullptr);
+    assert(buffer != nullptr);
+    assert(data != nullptr);
+    assert(dataCount > 0);
+    assert(dataBytes > 0);
+    assert(dataStride > 0);
 
-	//assert(offset > 0 && offset < buffer->length);
+    // Note: Reading back from mapped memory is VERY slow and
+    // there are not good optimizations that don't involve CPU
+    // side caching or GPU readback which has latency.
 
-	assert(dataCount > 0);
-	assert(dataBytes > 0);
-	assert(dataStride > 0);
-
-	mgbyte* src_ptr = buffer->push ? buffer->push : buffer->mapped;
+    mgbyte* src_ptr = buffer->push ? buffer->push : buffer->mapped;
     src_ptr += offset;
 
     if (dataStride == dataBytes)
@@ -4988,10 +4989,12 @@ void MGG_Buffer_GetData(MGG_GraphicsDevice* device, MGG_Buffer* buffer, mgint of
     }
     else
     {
-		auto bytesToCopy = dataBytes < dataStride ? dataBytes : dataStride;
+        auto bytesToCopy = dataBytes < dataStride ? dataBytes : dataStride;
         for (mgint i = 0; i < dataCount; ++i)
         {
-            memcpy(data + i * dataBytes, src_ptr + i * dataStride, bytesToCopy);
+            memcpy(data, src_ptr, bytesToCopy);
+            data += dataBytes;
+            src_ptr += dataStride;
         }
     }
 }
