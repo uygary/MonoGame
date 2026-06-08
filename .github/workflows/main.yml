@@ -495,7 +495,7 @@ jobs:
         run: dotnet MonoGame.Tests.dll --where="Category == GraphicsDevice" --timeout=300000 --labels=Before
         env:
           CI: true
-          VK_LOADER_DEBUG: all 
+          #VK_LOADER_DEBUG: all 
         working-directory: tests-desktopvk
         
       - name: Run Vulkan MemoryLifeCycle Tests
@@ -503,7 +503,7 @@ jobs:
         run: dotnet MonoGame.Tests.dll --where="Category == MemoryLifeCycle" --timeout=300000 --labels=Before
         env:
           CI: true
-          VK_LOADER_DEBUG: all 
+          #VK_LOADER_DEBUG: all 
         working-directory: tests-desktopvk
         
       - name: Run Vulkan All Tests Except Audio, GraphicsDevice, MemoryLifeCycle
