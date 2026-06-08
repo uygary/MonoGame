@@ -41,7 +41,7 @@ namespace MonoGame.Tests.Graphics
 
                     texture.SetData(pixels);
 
-                    readBack = new Color[Width * Width];
+                    readBack = new Color[Width * Height];
                     texture.GetData(readBack);
                 }
                 catch (Exception ex)
