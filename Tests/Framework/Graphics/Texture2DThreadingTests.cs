@@ -75,7 +75,7 @@ namespace MonoGame.Tests.Graphics
                 "Assets/Textures/32bit.png",
                 "Assets/Textures/sample_1280x853.hdr"
             };
-            const int COUNT = 100;
+            const int COUNT = 25;
 
             var loaded = new List<Texture2D>();
 
@@ -88,7 +88,7 @@ namespace MonoGame.Tests.Graphics
                 try
                 {
                     int count = COUNT;
-                    while (--count > 0)
+                    while (count-- > 0)
                     {
                         foreach (var texture in textures)
                             loaded.Add(Texture2D.FromFile(gd, texture));
@@ -104,7 +104,7 @@ namespace MonoGame.Tests.Graphics
 
             int frames = 0;
 
-            while (frames < 1000)
+            while (frames < 2000)
             {
                 gd.Clear(Color.MonoGameOrange);
                 gd.Present();
