@@ -640,6 +640,7 @@ namespace MonoGame.Tests.Graphics
                 if (OperatingSystem.IsMacOS()
                     && format is SurfaceFormat.Bgr565 or SurfaceFormat.Bgra5551 or SurfaceFormat.Bgra4444)
                 {
+                    //TODO: Fix on macOS
                     continue;
                 }
 #endif

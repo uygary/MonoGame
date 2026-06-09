@@ -45,7 +45,7 @@ namespace MonoGame.Tests.Graphics
 #if VULKAN
             if (OperatingSystem.IsMacOS())
             {
-                // TODO: Fix on macOS.
+                Assert.Ignore("TODO: Fix on macOS");
                 return;
             }
 #endif
