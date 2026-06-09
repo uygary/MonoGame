@@ -495,7 +495,7 @@ struct MGG_GraphicsSystem
 static void MGVK_BufferCopyAndFlush(MGG_GraphicsDevice* device, MGG_Buffer* buffer, int destOffset, mgbyte* data, int dataBytes);
 static MGG_Buffer* MGVK_Buffer_Create(MGG_GraphicsDevice* device, MGBufferType type, mgint sizeInBytes, bool no_push);
 static void MGVK_DestroyPipelines(MGG_GraphicsDevice* device, std::function<bool(const MGVK_PipelineState&)> compare);
-static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint currentFrame, mgbyte free_all);
+static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter currentFrame, mgbyte free_all);
 static void MGVK_UpdateRenderPass(MGG_GraphicsDevice* device, FrameCounter currentFrame, VkCommandBuffer commandBuffer);
 static VkCommandBuffer MGVK_BeginNewCommandBuffer(MGG_GraphicsDevice* device, VkCommandPool pool = VK_NULL_HANDLE);
 static void MGVK_ExecuteAndFreeCommandBuffer(MGG_GraphicsDevice* device, VkCommandBuffer commandBuffer, VkCommandPool pool = VK_NULL_HANDLE);
@@ -776,6 +776,7 @@ static bool SupportsExtension(const std::vector<VkExtensionProperties>& supporte
 MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 {
 #ifndef __APPLE__
+	printf("Initializing volk.\n");
 	auto err = volkInitialize();
 	if (err != VK_SUCCESS)
 	{
@@ -800,20 +801,64 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 	{
 		uint32_t count;
 		vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
+
+		fflush(stdout);
+		printf("Found %u Vulkan instance extensions.\n", count);
+		fflush(stdout);
+
 		supportedInstanceExtensions.resize(count);
 
 		vkEnumerateInstanceExtensionProperties(nullptr, &count, supportedInstanceExtensions.data());
+
+		fflush(stdout);
+		printf("Supported Vulkan instance extensions:\n");
+		for (const auto& ext : supportedInstanceExtensions)
+		{
+			printf("- %s\n", ext.extensionName);
+		}
+		fflush(stdout);
 	}
 
 	std::vector<const char*> instanceExtensions;
 #if defined(MG_SDL2)
 	{
-		uint32_t count;
-		SDL_Vulkan_GetInstanceExtensions(nullptr, &count, nullptr);
-		instanceExtensions.resize(count);
+		uint32_t count = 0;
+		if (SDL_Vulkan_GetInstanceExtensions(nullptr, &count, nullptr))
+		{
+			fflush(stdout);
+			printf("Found %u Vulkan instance extensions required by SDL.\n", count);
+			fflush(stdout);
 
-		// This call returns the extensions that SDL needs for the created instance.
-		SDL_Vulkan_GetInstanceExtensions(nullptr, &count, instanceExtensions.data());
+			instanceExtensions.resize(count);
+
+			// This call returns the extensions that SDL needs for the created instance.
+			if (SDL_Vulkan_GetInstanceExtensions(nullptr, &count, instanceExtensions.data()))
+			{
+				fflush(stdout);
+				printf("Retrieved Vulkan instance extensions required by SDL:\n");
+				for (const auto& ext : instanceExtensions)
+				{
+					printf("- %s\n", ext);
+				}
+				fflush(stdout);
+			}
+			else
+			{
+				fflush(stdout);
+				printf("SDL_Vulkan_GetInstanceExtensions failed to populate: %s\n", SDL_GetError());
+				fflush(stdout);
+
+				return nullptr;
+			}
+		}
+		else
+		{
+			fflush(stdout);
+			printf("SDL_Vulkan_GetInstanceExtensions failed to get count: %s\n", SDL_GetError());
+			fflush(stdout);
+
+			return nullptr;
+		}
 	}
 #endif
 
@@ -1698,7 +1743,14 @@ void MGVK_RecreateSwapChain(
 		if (device->surface != nullptr)
 			vkDestroySurfaceKHR(device->instance, device->surface, nullptr);
 
-		SDL_Vulkan_CreateSurface(sdl_window, device->instance, &device->surface);
+		if (!SDL_Vulkan_CreateSurface(sdl_window, device->instance, &device->surface))
+		{
+			printf("SDL_Vulkan_CreateSurface failed: %s\n", SDL_GetError());
+			fflush(stdout);
+
+			device->surface = VK_NULL_HANDLE;
+			return;
+		}
 		VK_SET_OBJECT_NAME(device->device, (uint64_t)device->surface, VK_OBJECT_TYPE_SURFACE_KHR, "MGG_GraphicsDevice.surface");
 
 		device->window = sdl_window;
@@ -2040,6 +2092,14 @@ void MGVK_RecreateSwapChain(MGG_GraphicsDevice* device)
 {
 	MGVK_CleanupSwapChain(device);
 
+	if (device->window == nullptr)
+	{
+		printf("Cannot recreate swapchain: window is null!\n");
+		fflush(stdout);
+
+		return;
+	}
+
 	MGVK_RecreateSwapChain(
 		device,
 		device->window,
@@ -2106,7 +2166,7 @@ static void MGVK_ProcessDescriptorCaches(MGG_GraphicsDevice* device, FrameCounte
 		for (; pair != usedSets.end();)
 		{
 			auto diff = currentFrame - pair->second->frame;
-			if (diff < device->freeFrames || (0xFFFF - diff) < device->freeFrames)
+			if (diff < device->freeFrames)
 			{
 				pair++;
 				continue;
@@ -2171,8 +2231,12 @@ void MGVK_PrepareFrame(MGG_GraphicsDevice* device)
 
 	// Cleanup resources from the last time this frame was rendered.
 	MGVK_ProcessDescriptorCaches(device, device->frame);
-	MGVK_DestroyFrameResources(device, frame.image_index, false);
 
+	// MGVK_DestroyFrameResources uses currentFrame and device->freeFrames to calculate age.
+	// We should pass the device->frame rather than swapchain_image_index.
+	// Otherwise age calculation will underflow.
+	MGVK_DestroyFrameResources(device, device->frame, false);
+	
 	frame.uniformOffset = 0;
 	if (frame.uniforms == NULL)
 	{
@@ -2315,21 +2379,17 @@ static void MGVK_DestroyPipelines(MGG_GraphicsDevice* device, std::function<bool
 	}
 }
 
-static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint currentFrame, mgbyte free_all)
+static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter currentFrame, mgbyte free_all)
 {
 	assert(device != nullptr);
-	assert(currentFrame >= 0);
-
-	auto frameIndex = currentFrame % device->swapchainCount;
-	auto& swap = device->swapchains[frameIndex];
 	
 	// Delete resources that haven't been used in a few frames 
 	{
-		while (device->destroyBuffers.size() > 0)
+		while (!device->destroyBuffers.empty())
 		{
 			auto buffer = device->destroyBuffers.front();
 			auto diff = currentFrame - buffer->frame;
-			if (!free_all && diff < device->freeFrames || (0xFFFF - diff) < device->freeFrames)
+			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyBuffers.pop();
@@ -2337,11 +2397,11 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 			delete buffer;
 		}
 
-		while (device->destroyTextures.size() > 0)
+		while (!device->destroyTextures.empty())
 		{
 			auto texture = device->destroyTextures.front();
 			auto diff = currentFrame - texture->frame;
-			if (!free_all && diff < device->freeFrames || (0xFFFF - diff) < device->freeFrames)
+			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyTextures.pop();
@@ -2355,6 +2415,13 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 			{
 				MGVK_DestroyPipelines(device, [texture](const MGVK_PipelineState& s)
 				{
+					// Just being defensive. s.targets should'nt be null.
+					// I want to make sure swap-chain cleanup won't have an impact here.
+					if (!s.targets)
+					{
+						return false;
+					}
+
 					return	s.targets->set.targets[0] == texture ||
 						s.targets->set.targets[1] == texture ||
 						s.targets->set.targets[2] == texture ||
@@ -2384,7 +2451,7 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 		{
 			auto state = device->destroyBlendStates.front();
 			auto diff = currentFrame - state->frame;
-			if (!free_all && diff < device->freeFrames || (0xFFFF - diff) < device->freeFrames)
+			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyBlendStates.pop();
@@ -2397,7 +2464,7 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 		{
 			auto state = device->destroyRasterizerStates.front();
 			auto diff = currentFrame - state->frame;
-			if (!free_all && diff < device->freeFrames || (0xFFFF - diff) < device->freeFrames)
+			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyRasterizerStates.pop();
@@ -2410,7 +2477,7 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, mgint current
 		{
 			auto state = device->destroyDepthStencilStates.front();
 			auto diff = currentFrame - state->frame;
-			if (!free_all && diff < device->freeFrames || (0xFFFF - diff) < device->freeFrames)
+			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyDepthStencilStates.pop();
@@ -2546,8 +2613,11 @@ void MGG_GraphicsDevice_Present(MGG_GraphicsDevice* device, mgint currentFrame, 
 			printf("Swapchain suboptimal. Recreating swapchain...\n");
 		else
 			printf("Swapchain out of date. Recreating swapchain...\n");
-
+			
 		MGVK_RecreateSwapChain(device);
+				
+		if (device->swapchain == VK_NULL_HANDLE)
+			printf("Couldn't recreate swapchain!\n");
 	}
 	else
 	{
