@@ -616,7 +616,11 @@ static VkFormat ToVkFormat(MGDepthFormat format)
 		return VkFormat::VK_FORMAT_D16_UNORM;
 	case MGDepthFormat::Depth24:
 	case MGDepthFormat::Depth24Stencil8:
+#if defined(__APPLE__)
+		return VkFormat::VK_FORMAT_D32_SFLOAT_S8_UINT;
+#else
 		return VkFormat::VK_FORMAT_D24_UNORM_S8_UINT;
+#endif
 	default:
 		return VkFormat::VK_FORMAT_UNDEFINED;
 	}
