@@ -3,9 +3,9 @@
 // file 'LICENSE.txt', which is part of this source code package.
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using NUnit.Framework;
@@ -64,40 +64,40 @@ namespace MonoGame.Tests.Graphics
         [Test]
         public void BackgroundLoading()
         {
-            var textures = new string[]
-            {
-                "Assets/Textures/LogoOnly_64px.gif",
-                "Assets/Textures/LogoOnly_64px.jpg",
-                "Assets/Textures/LogoOnly_64px.png",
-                "Assets/Textures/1bit.png",
-                "Assets/Textures/8bit.png",
-                "Assets/Textures/24bit.png",
-                "Assets/Textures/32bit.png",
-                "Assets/Textures/sample_1280x853.hdr"
-            };
-            const int COUNT = 25;
+            const int COUNT = 400;
+            const int WIDTH = 128;
+            const int HEIGHT = 128;
 
             var loaded = new List<Texture2D>();
+            var barrier = new Barrier(2);
 
             Exception threadException = null;
 
             var thread = new Thread(() =>
             {
-                Thread.Sleep(10);
-
                 try
                 {
                     int count = COUNT;
                     while (count-- > 0)
                     {
-                        foreach (var texture in textures)
-                            loaded.Add(Texture2D.FromFile(gd, texture));
+                        var tex = new Texture2D(gd, WIDTH, HEIGHT);
+
+                        var pixels = new Color[WIDTH * HEIGHT];
+                        for (int i = 0; i < pixels.Length; i++)
+                            pixels[i] = Color.MonoGameOrange;
+
+                        barrier.SignalAndWait();
+                        tex.SetData(pixels);
+                        tex.SetData(pixels);
+                        loaded.Add(tex);
                     }
                 }
                 catch (Exception ex)
-                {
+                {                    
                     threadException = ex;
                 }
+
+                barrier.RemoveParticipant();
             });
 
             thread.Start();
@@ -106,7 +106,9 @@ namespace MonoGame.Tests.Graphics
 
             while (frames < 2000)
             {
+                barrier.SignalAndWait();
                 gd.Clear(Color.MonoGameOrange);
+                barrier.SignalAndWait();
                 gd.Present();
                 ++frames;
 
@@ -114,8 +116,12 @@ namespace MonoGame.Tests.Graphics
                     break;
             }
 
+            Assert.Null(threadException, $"Thread threw exception: {threadException}");
             Assert.True(frames > 1, "Should have presented more than once!");
-            Assert.AreEqual(textures.Length * COUNT, loaded.Count, "Some textures failed to load!");
+            Assert.AreEqual(COUNT, loaded.Count, "Some textures failed to load!");
+
+            foreach (var tex in loaded)
+                tex.Dispose();
         }
     }
 }
