@@ -14,6 +14,7 @@ namespace MonoGame.Tests.Graphics
 {
     [TestFixture]
     [NonParallelizable]
+    [RunOnUI]
 #if DESKTOPGL
     [Ignore("GL doesn't work well with threads.")]
 #endif
