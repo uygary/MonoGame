@@ -10,13 +10,13 @@ using NUnit.Framework;
 
 namespace MonoGame.Tests.Graphics
 {
+    [RunOnUI]
     [TestFixture]
     [Category("MemoryLifeCycle")]
     [NonParallelizable]
     internal class DeferredDestructionTest
     {
         [Test]
-        [RunOnUI]
         public void WaitForGpuToIdleBeforeDisposingBuffer()
         {
             var testGame = new TestGameBase()
@@ -74,7 +74,6 @@ namespace MonoGame.Tests.Graphics
         }
 
         [Test]
-        [RunOnUI]
         public void WaitForGpuToIdleBeforeDisposingRenderTarget()
         {
             var testGame = new TestGameBase()
@@ -109,7 +108,6 @@ namespace MonoGame.Tests.Graphics
         }
 
         [Test]
-        [RunOnUI]
         public void RenderTargetTextureSurvivesDeferredDestruction()
         {
             var testGame = new TestGameBase()
@@ -154,7 +152,6 @@ namespace MonoGame.Tests.Graphics
         }
 
         [Test]
-        [RunOnUI]
         public void RenderTargetTextureWithDepthSurvivesDeferredDestruction()
         {
             var testGame = new TestGameBase()
@@ -205,7 +202,6 @@ namespace MonoGame.Tests.Graphics
         }
 
         [Test]
-        [RunOnUI]
         public void MultipleRenderTargetsDisposeOrder()
         {
             var testGame = new TestGameBase()
@@ -252,7 +248,6 @@ namespace MonoGame.Tests.Graphics
         }
 
         [Test]
-        [RunOnUI]
         public void DisposeAfterRenderTargetPresented()
         {
             var testGame = new TestGameBase()
