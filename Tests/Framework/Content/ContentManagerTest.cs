@@ -9,7 +9,7 @@ using NUnit.Framework;
 namespace MonoGame.Tests.Content
 {
     [NonParallelizable]
-    [RunOnUITestFixture]
+    [RunOnUiTestFixture]
     internal class ContentManagerTest : GraphicsDeviceTestFixtureBase
     {
         [Test]

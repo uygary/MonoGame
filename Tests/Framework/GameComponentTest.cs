@@ -8,7 +8,7 @@ using MonoGame.Tests.Framework.Components;
 
 namespace MonoGame.Tests.Framework
 {
-    [RunOnUITestFixture]
+    [RunOnUiTestFixture]
     public static class GameComponentTest
     {
         [Test]

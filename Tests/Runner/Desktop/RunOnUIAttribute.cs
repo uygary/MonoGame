@@ -9,7 +9,7 @@ namespace MonoGame.Tests
     /// Marshall the test onto the main UI thread.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, Inherited = true, AllowMultiple = false)]
-    sealed class RunOnUIAttribute : Attribute, IWrapSetUpTearDown, IWrapTestMethod
+    sealed class RunOnUiAttribute : Attribute, IWrapSetUpTearDown, IWrapTestMethod
     {
         public TestCommand Wrap(TestCommand command) => new RunOnUICommand(command);
 

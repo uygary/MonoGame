@@ -1,10 +1,10 @@
-using MonoGame.Tests.Components;
+﻿using MonoGame.Tests.Components;
 using NUnit.Framework;
 
 namespace MonoGame.Tests.Graphics
 {
     [NonParallelizable]
-    [RunOnUITestFixture]
+    [RunOnUiTestFixture]
     internal class MiscellaneousTests : GraphicsDeviceTestFixtureBase
     {
         [Test]

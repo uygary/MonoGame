@@ -6,7 +6,7 @@ using NUnit.Framework;
 namespace MonoGame.Tests.Graphics
 {
     [NonParallelizable]
-    [RunOnUITestFixture]
+    [RunOnUiTestFixture]
     class ViewportTest : GraphicsDeviceTestFixtureBase
     {
         [Test]

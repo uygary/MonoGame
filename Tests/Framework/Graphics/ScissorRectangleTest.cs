@@ -8,7 +8,7 @@ using NUnit.Framework.Internal;
 namespace MonoGame.Tests.Graphics
 {
     
-    [RunOnUITestFixture]
+    [RunOnUiTestFixture]
     internal class ScissorRectangleTest : GraphicsDeviceTestFixtureBase
     {
         private SpriteBatch _spriteBatch;

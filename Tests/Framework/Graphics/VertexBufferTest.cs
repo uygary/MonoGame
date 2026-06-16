@@ -1,4 +1,4 @@
-// MonoGame - Copyright (C) MonoGame Foundation, Inc
+﻿// MonoGame - Copyright (C) MonoGame Foundation, Inc
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
@@ -12,7 +12,7 @@ using Microsoft.Xna.Framework.Graphics;
 namespace MonoGame.Tests.Graphics
 {
     [NonParallelizable]
-    [RunOnUITestFixture]
+    [RunOnUiTestFixture]
     class VertexBufferTest : GraphicsDeviceTestFixtureBase
     {
         VertexPositionTexture[] savedData = new VertexPositionTexture[] 

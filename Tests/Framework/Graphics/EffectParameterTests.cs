@@ -12,7 +12,7 @@ namespace MonoGame.Tests.Graphics
     // TODO: Bring this suite of tests to the other APIs - it's a good check that they all handle params similarly.
 #if VULKAN
     [NonParallelizable]
-    [RunOnUITestFixture]
+    [RunOnUiTestFixture]
     class EffectParameterTests : GraphicsDeviceTestFixtureBase
     {
         private Effect _effect;

@@ -12,7 +12,7 @@ namespace MonoGame.Tests.Graphics
 {
     [Category("MemoryLifeCycle")]
     [NonParallelizable]
-    [RunOnUITestFixture]
+    [RunOnUiTestFixture]
     internal class DeferredDestructionTest
     {
         [Test]

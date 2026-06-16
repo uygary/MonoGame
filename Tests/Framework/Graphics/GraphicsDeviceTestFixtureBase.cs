@@ -19,7 +19,7 @@ using NUnit.Framework.Internal;
 namespace MonoGame.Tests.Graphics
 {
     [Category("GraphicsDevice")]
-    [RunOnUITestFixture]
+    [RunOnUiTestFixture]
     internal abstract class GraphicsDeviceTestFixtureBase
     {
         protected TestGameBase game;

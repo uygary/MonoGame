@@ -16,7 +16,7 @@ namespace MonoGame.Tests.Graphics
 #if DESKTOPGL
     [Ignore("GL doesn't work well with threads.")]
 #endif
-    [RunOnUITestFixture]
+    [RunOnUiTestFixture]
     class Texture2DThreadingTests : GraphicsDeviceTestFixtureBase
     {
         [Test]

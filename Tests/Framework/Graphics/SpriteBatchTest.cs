@@ -10,7 +10,7 @@ using NUnit.Framework;
 
 namespace MonoGame.Tests.Graphics {
     [NonParallelizable]
-	[RunOnUITestFixture]
+	[RunOnUiTestFixture]
 	class SpriteBatchTest : GraphicsDeviceTestFixtureBase {
 		private SpriteBatch _spriteBatch;
 		private Texture2D _texture;

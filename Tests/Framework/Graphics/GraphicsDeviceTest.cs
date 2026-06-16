@@ -15,7 +15,7 @@ using MonoGame.OpenGL;
 namespace MonoGame.Tests.Graphics
 {
     [NonParallelizable]
-    [RunOnUITestFixture]
+    [RunOnUiTestFixture]
     internal class GraphicsDeviceTest : GraphicsDeviceTestFixtureBase
     {
         [Test]

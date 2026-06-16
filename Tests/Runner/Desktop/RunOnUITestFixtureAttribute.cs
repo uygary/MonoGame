@@ -16,7 +16,7 @@ namespace MonoGame.Tests
     /// When decorates a class, it replaces <see cref="TestFixtureAttribute"/> usage and all test methods in that class are marshalled to the UI thread.
     /// </remarks>
     [AttributeUsage(AttributeTargets.Class, Inherited = true, AllowMultiple = false)]
-    sealed class RunOnUITestFixtureAttribute : Attribute, IFixtureBuilder2
+    sealed class RunOnUiTestFixtureAttribute : Attribute, IFixtureBuilder2
     {
         public IEnumerable<TestSuite> BuildFrom(ITypeInfo typeInfo, IPreFilter filter)
         {
@@ -40,9 +40,9 @@ namespace MonoGame.Tests
                 if (test is TestMethod testMethod)
                 {
                     // Skip if the method already has RunOnUiAttribute.
-                    if (!testMethod.Method.IsDefined<RunOnUIAttribute>(true))
+                    if (!testMethod.Method.IsDefined<RunOnUiAttribute>(true))
                     {
-                        testMethod.Method = new MethodInfoWithAttribute(testMethod.Method, new RunOnUIAttribute());
+                        testMethod.Method = new MethodInfoWithAttribute(testMethod.Method, new RunOnUiAttribute());
                     }
                 }
                 else if (test is TestSuite childSuite)
@@ -63,9 +63,9 @@ namespace MonoGame.Tests
         private class MethodInfoWithAttribute : IMethodInfo
         {
             private readonly IMethodInfo _innerMethodInfo;
-            private readonly RunOnUIAttribute _attribute;
+            private readonly RunOnUiAttribute _attribute;
 
-            public MethodInfoWithAttribute(IMethodInfo innerMethodInfo, RunOnUIAttribute attribute)
+            public MethodInfoWithAttribute(IMethodInfo innerMethodInfo, RunOnUiAttribute attribute)
             {
                 _innerMethodInfo = innerMethodInfo;
                 _attribute = attribute;

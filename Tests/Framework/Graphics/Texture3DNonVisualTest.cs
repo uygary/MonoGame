@@ -10,7 +10,7 @@ using Microsoft.Xna.Framework.Graphics;
 namespace MonoGame.Tests.Graphics
 {
     [NonParallelizable]
-    [RunOnUITestFixture]
+    [RunOnUiTestFixture]
     internal class Texture3DNonVisualTest : GraphicsDeviceTestFixtureBase
     {
         Texture3D t;
