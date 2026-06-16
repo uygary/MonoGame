@@ -5,7 +5,6 @@ using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
-using NUnit.Framework.Internal.Commands;
 
 namespace MonoGame.Tests 
 {
@@ -16,11 +15,9 @@ namespace MonoGame.Tests
     /// Can decorate individual test methods, or the whole test class.<br/>
     /// When decorates a class, it replaces <see cref="TestFixtureAttribute"/> usage and all test methods in that class are marshalled to the UI thread.
     /// </remarks>
-    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = true, AllowMultiple = false)]
-    sealed class RunOnUITestFixtureAttribute : Attribute, IWrapSetUpTearDown, IWrapTestMethod, IFixtureBuilder2
+    [AttributeUsage(AttributeTargets.Class, Inherited = true, AllowMultiple = false)]
+    sealed class RunOnUITestFixtureAttribute : Attribute, IFixtureBuilder2
     {
-        public TestCommand Wrap(TestCommand command) => new RunOnUICommand(command);
-
         public IEnumerable<TestSuite> BuildFrom(ITypeInfo typeInfo, IPreFilter filter)
         {
             var testFixtureBuilder = new NUnitTestFixtureBuilder();
@@ -43,9 +40,9 @@ namespace MonoGame.Tests
                 if (test is TestMethod testMethod)
                 {
                     // Skip if the method already has RunOnUiAttribute.
-                    if (!testMethod.Method.IsDefined<RunOnUITestFixtureAttribute>(true))
+                    if (!testMethod.Method.IsDefined<RunOnUIAttribute>(true))
                     {
-                        testMethod.Method = new MethodInfoWithAttribute(testMethod.Method, this);
+                        testMethod.Method = new MethodInfoWithAttribute(testMethod.Method, new RunOnUIAttribute());
                     }
                 }
                 else if (test is TestSuite childSuite)
@@ -53,19 +50,6 @@ namespace MonoGame.Tests
                     // Wrap parameterized unit tests.
                     WrapTestMethods(childSuite);
                 }
-            }
-        }
-
-        private class RunOnUICommand : DelegatingTestCommand
-        {
-            public RunOnUICommand(TestCommand innerCommand)
-                : base(innerCommand)
-            {
-            }
-
-            public override TestResult Execute(TestExecutionContext context)
-            {
-                return Program.Invoke(() => innerCommand.Execute(context), context.CurrentTest.MakeTestResult());
             }
         }
 
@@ -79,9 +63,9 @@ namespace MonoGame.Tests
         private class MethodInfoWithAttribute : IMethodInfo
         {
             private readonly IMethodInfo _innerMethodInfo;
-            private readonly RunOnUITestFixtureAttribute _attribute;
+            private readonly RunOnUIAttribute _attribute;
 
-            public MethodInfoWithAttribute(IMethodInfo innerMethodInfo, RunOnUITestFixtureAttribute attribute)
+            public MethodInfoWithAttribute(IMethodInfo innerMethodInfo, RunOnUIAttribute attribute)
             {
                 _innerMethodInfo = innerMethodInfo;
                 _attribute = attribute;
