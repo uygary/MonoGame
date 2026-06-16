@@ -12,8 +12,8 @@ namespace MonoGame.Tests
     /// Marshall the test onto the main UI thread.
     /// </summary>
     /// <remarks>
-    /// Can decorate individual test methods, or the whole test class.<br/>
-    /// When decorates a class, it replaces <see cref="TestFixtureAttribute"/> usage and all test methods in that class are marshalled to the UI thread.
+    /// Used to decorate a whole test class.<br/>
+    /// It replaces <see cref="TestFixtureAttribute"/> usage and all test methods in that class are marshalled to the UI thread.
     /// </remarks>
     [AttributeUsage(AttributeTargets.Class, Inherited = true, AllowMultiple = false)]
     sealed class RunOnUiTestFixtureAttribute : Attribute, IFixtureBuilder2
