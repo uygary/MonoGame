@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
@@ -13,7 +14,7 @@ namespace MonoGame.Tests
     /// </summary>
     /// <remarks>
     /// Can decorate individual test methods, or the whole test class.<br/>
-    /// When decorates a class, all test methods in that class are marshalled to the UI thread.
+    /// When decorates a class, it replaces <see cref="TestFixtureAttribute"/> usage and all test methods in that class are marshalled to the UI thread.
     /// </remarks>
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = true, AllowMultiple = false)]
     sealed class RunOnUITestFixtureAttribute : Attribute, IWrapSetUpTearDown, IWrapTestMethod, IFixtureBuilder2
