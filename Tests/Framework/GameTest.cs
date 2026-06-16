@@ -13,6 +13,7 @@ using NUnit.Framework;
 
 namespace MonoGame.Tests {
 	static partial class GameTest {
+		[RunOnUITestFixture]
 		public abstract class FixtureBase {
 			private MockGame _game;
 
@@ -21,7 +22,6 @@ namespace MonoGame.Tests {
 			}
 
 			[SetUp]
-            [RunOnUI]
 			public virtual void SetUp ()
 			{
 				Paths.SetStandardWorkingDirectory();
@@ -29,7 +29,6 @@ namespace MonoGame.Tests {
 			}
 
 			[TearDown]
-            [RunOnUI]
 			public virtual void TearDown ()
 			{
 				_game.Dispose ();
@@ -37,11 +36,9 @@ namespace MonoGame.Tests {
 			}
 		}
 
-		[TestFixture]
 		[Category("GameTest")]
-		[RunOnUI]
+		[RunOnUITestFixture]
 		public class Disposal : FixtureBase {
-            [RunOnUI]
 			[TestCase ("Components")]
 			[TestCase ("Content")]
 			[TestCase ("GraphicsDevice")]
@@ -64,7 +61,6 @@ namespace MonoGame.Tests {
 					RunAndUnpackException(() => propertyInfo.GetValue(Game, null)));
 			}
 
-            [RunOnUI]
 			[TestCase ("Dispose")]
 			[TestCase ("Exit")]
 			[TestCase ("ResetElapsedTime")]
@@ -135,12 +131,10 @@ namespace MonoGame.Tests {
 			}
 		}
 
-		[TestFixture]
 		[Category("GameTest")]
-		[RunOnUI]
+		[RunOnUITestFixture]
 		public class Behaviors : FixtureBase {
 			[Test, Ignore("Fix me!")]
-            [RunOnUI]
 			public void Nongraphical_run_succeeds ()
 			{
 				Game.Run ();
@@ -150,7 +144,6 @@ namespace MonoGame.Tests {
 			}
 
 			[Test, Ignore("Fix me!")]
-            [RunOnUI]
 			public void Fixed_time_step_skips_draw_when_update_is_slow ()
 			{
 				Game.MakeGraphical ();
@@ -176,7 +169,6 @@ namespace MonoGame.Tests {
 			}
 
             [Test]
-            [RunOnUI]
             public void GameTickTest()
             {
                 // should not throw an exception
@@ -186,13 +178,11 @@ namespace MonoGame.Tests {
             }
         }
 
-        [TestFixture]
 		[Category("GameTest")]
-		[RunOnUI]
+        [RunOnUITestFixture]
         public class Misc
         {
             [Test]
-            [RunOnUI]
             [Ignore("MG crashes when no graphicsDeviceManager is set and Run is called")]
             public void LoadContentNotCalledWithoutGdm()
             {
@@ -205,7 +195,6 @@ namespace MonoGame.Tests {
             }
 
             [Test]
-            [RunOnUI]
             [Ignore("MG crashes when no GraphicsDevice is set and Run is called")]
             public void LoadContentNotCalledWithoutGd()
             {
@@ -220,7 +209,6 @@ namespace MonoGame.Tests {
             }
 
             [Test]
-            [RunOnUI]
 #if DESKTOPGL
             [Ignore("This crashes inside SDL on Mac!")]
 #endif

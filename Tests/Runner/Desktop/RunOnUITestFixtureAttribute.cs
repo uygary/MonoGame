@@ -16,7 +16,7 @@ namespace MonoGame.Tests
     /// When decorates a class, all test methods in that class are marshalled to the UI thread.
     /// </remarks>
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = true, AllowMultiple = false)]
-    sealed class RunOnUIAttribute : Attribute, IWrapSetUpTearDown, IWrapTestMethod, IFixtureBuilder2
+    sealed class RunOnUITestFixtureAttribute : Attribute, IWrapSetUpTearDown, IWrapTestMethod, IFixtureBuilder2
     {
         public TestCommand Wrap(TestCommand command) => new RunOnUICommand(command);
 
@@ -42,7 +42,7 @@ namespace MonoGame.Tests
                 if (test is TestMethod testMethod)
                 {
                     // Skip if the method already has RunOnUiAttribute.
-                    if (!testMethod.Method.IsDefined<RunOnUIAttribute>(true))
+                    if (!testMethod.Method.IsDefined<RunOnUITestFixtureAttribute>(true))
                     {
                         testMethod.Method = new MethodInfoWithAttribute(testMethod.Method, this);
                     }
@@ -78,9 +78,9 @@ namespace MonoGame.Tests
         private class MethodInfoWithAttribute : IMethodInfo
         {
             private readonly IMethodInfo _innerMethodInfo;
-            private readonly RunOnUIAttribute _attribute;
+            private readonly RunOnUITestFixtureAttribute _attribute;
 
-            public MethodInfoWithAttribute(IMethodInfo innerMethodInfo, RunOnUIAttribute attribute)
+            public MethodInfoWithAttribute(IMethodInfo innerMethodInfo, RunOnUITestFixtureAttribute attribute)
             {
                 _innerMethodInfo = innerMethodInfo;
                 _attribute = attribute;

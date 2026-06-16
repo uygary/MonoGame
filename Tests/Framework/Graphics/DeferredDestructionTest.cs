@@ -10,10 +10,9 @@ using NUnit.Framework;
 
 namespace MonoGame.Tests.Graphics
 {
-    [RunOnUI]
-    [TestFixture]
     [Category("MemoryLifeCycle")]
     [NonParallelizable]
+    [RunOnUITestFixture]
     internal class DeferredDestructionTest
     {
         [Test]

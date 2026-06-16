@@ -1,4 +1,4 @@
-﻿// MonoGame - Copyright (C) MonoGame Foundation, Inc
+// MonoGame - Copyright (C) MonoGame Foundation, Inc
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 using Microsoft.Xna.Framework;
@@ -7,16 +7,14 @@ using NUnit.Framework;
 
 namespace MonoGame.Tests.Graphics
 {
-    [TestFixture]
     [NonParallelizable]
-    [RunOnUI]
+    [RunOnUITestFixture]
     class Texture3DTest : GraphicsDeviceTestFixtureBase
     {
         [Test]
         [TestCase(1, 1, 1)]
         [TestCase(8, 8, 8)]
         [TestCase(31, 7, 13)]
-        [RunOnUI]
         public void ShouldSetAndGetData(int width, int height, int depth)
         {
             var dataSize = width * height * depth;

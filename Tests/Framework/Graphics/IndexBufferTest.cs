@@ -1,4 +1,4 @@
-﻿// MonoGame - Copyright (C) MonoGame Foundation, Inc
+// MonoGame - Copyright (C) MonoGame Foundation, Inc
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
@@ -8,12 +8,11 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace MonoGame.Tests.Graphics
 {
-    [TestFixture]
     [NonParallelizable]
+    [RunOnUITestFixture]
     class IndexBufferTest: GraphicsDeviceTestFixtureBase
     {
         [Test]
-        [RunOnUI]
         public void ShouldSetAndGetData()
         {
             // Short
@@ -44,7 +43,6 @@ namespace MonoGame.Tests.Graphics
         }
 
         [Test]
-        [RunOnUI]
         public void ShouldSetAndGetData_elementCount()
         {
             // Short
@@ -81,7 +79,6 @@ namespace MonoGame.Tests.Graphics
         }
 
         [Test]
-        [RunOnUI]
         public void ShouldSetAndGetData_startIndex()
         {
             // Short
@@ -118,7 +115,6 @@ namespace MonoGame.Tests.Graphics
         }
 
         [Test]
-        [RunOnUI]
         public void ShouldSetAndGetData_offsetInBytes()
         {
             // Short
@@ -151,7 +147,6 @@ namespace MonoGame.Tests.Graphics
         }
 
         [Test]
-        [RunOnUI]
         public void NullDeviceShouldThrowArgumentNullException()
         {
             Assert.Throws<ArgumentNullException>(() => 
@@ -163,7 +158,6 @@ namespace MonoGame.Tests.Graphics
         }
 
         [Test]
-        [RunOnUI]
         public void TypedConstructorShouldWork()
         {
             var indexBuffer = new IndexBuffer(gd, typeof(short), 12, BufferUsage.None);

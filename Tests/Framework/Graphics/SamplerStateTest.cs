@@ -1,4 +1,4 @@
-﻿// MonoGame - Copyright (C) MonoGame Foundation, Inc
+// MonoGame - Copyright (C) MonoGame Foundation, Inc
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
@@ -9,19 +9,17 @@ using NUnit.Framework;
 
 namespace MonoGame.Tests.Graphics
 {
-    [TestFixture]
     [NonParallelizable]
+    [RunOnUITestFixture]
     internal class SamplerStateTest : GraphicsDeviceTestFixtureBase
     {
         [Test]
-        [RunOnUI]
         public void ShouldNotBeAbleToSetNullSamplerState()
         {
             Assert.Throws<ArgumentNullException>(() => gd.SamplerStates[0] = null);
         }
 
         [Test]
-        [RunOnUI]
         public void ShouldNotBeAbleToMutateStateObjectAfterBindingToGraphicsDevice()
         {
             var samplerState = new SamplerState();
@@ -41,7 +39,6 @@ namespace MonoGame.Tests.Graphics
         }
 
         [Test]
-        [RunOnUI]
         public void ShouldNotBeAbleToMutateDefaultStateObjects()
         {
             DoAsserts(SamplerState.AnisotropicClamp, d => Assert.Throws<InvalidOperationException>(d));
@@ -71,7 +68,6 @@ namespace MonoGame.Tests.Graphics
 
 #if !XNA
         [Test]
-        [RunOnUI]
         public void VisualTestAddressModes()
         {
 #if VULKAN
@@ -139,7 +135,6 @@ namespace MonoGame.Tests.Graphics
 #if DESKTOPGL
         [Ignore("Comparison samplers are ps_4_0 and up, cannot use them on DesktopGL due to MojoShader")]
 #endif
-        [RunOnUI]
         public void VisualTestComparisonFunction()
         {
             PrepareFrameCapture();
