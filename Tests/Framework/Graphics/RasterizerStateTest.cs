@@ -16,21 +16,15 @@ namespace MonoGame.Tests.Graphics
     {
         [TestCase(-1f)]
 #if DESKTOPGL
-        [TestCase(1f), Ignore ("fails similarity test. Needs Investigating")]
+        [TestCase(1f, Ignore = "fails similarity test. Needs Investigating")]
+#elif VULKAN && MACOS
+        [TestCase(1f, Ignore = "Constant depth bias has no effect on float-depth polygons at z=0; not supported on MoltenVK. See https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#primsrast-depthbias")]  
 #else
         [TestCase(1f)]
 #endif
         [TestCase(-0.0004f)]
         public void DepthBiasVisualTest(float depthBias)
         {
-#if VULKAN
-            if (OperatingSystem.IsMacOS())
-            {
-                Assert.Ignore("TODO: Fix on macOS");
-                return;
-            }
-#endif
-
             var effect = new BasicEffect(gd)
             {
                 VertexColorEnabled = true,
