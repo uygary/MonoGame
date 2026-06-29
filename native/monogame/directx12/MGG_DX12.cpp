@@ -36,6 +36,7 @@ using namespace Microsoft::WRL;
 typedef mguint FrameCounter;
 
 static void MGDX_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter currentFrame, mgbool free_all);
+static void MGDX_PrepareNextFrame(MGG_GraphicsDevice* device);
 static MGG_Buffer* MGDX_Buffer_Create(MGG_GraphicsDevice* device, size_t sizeInBytes, D3D12_HEAP_TYPE heap, D3D12_RESOURCE_STATES state);
 
 template<class T>
@@ -143,6 +144,7 @@ struct MGG_GraphicsDevice
 	FrameCounter frame = 0;
 	FrameCounter freeFrames = 0;
 	bool is_recording = false;
+	int begin_frame_index = -1;
 
 	DeviceResources* resources = nullptr;
 	CommandContext* context = nullptr;
@@ -575,6 +577,7 @@ void MGG_GraphicsDevice_ResizeSwapchain(
 #endif
 
 	device->resources->CreateWindowSizeDependentResources(width, height, 0, 0, 0, 0, multiSampleCount);
+	device->begin_frame_index = -1;
 
 	if (device->depthTexture)
 	{
@@ -589,18 +592,13 @@ void MGG_GraphicsDevice_ResizeSwapchain(
 			device->depthTexture->SetMSAA(multiSampleCount);
 		device->depthTexture->Create(device->resources);
 	}
+
+	MGDX_PrepareNextFrame(device);
 }
 
-mgint MGG_GraphicsDevice_BeginFrame(MGG_GraphicsDevice* device)
+static void MGDX_PrepareNextFrame(MGG_GraphicsDevice* device)
 {
-	assert(device != nullptr);
-	assert(!device->is_recording);
-
-#if defined(_GAMING_XBOX)
-	device->resources->WaitForOrigin();
-#endif
-
-	auto frameIndex = device->resources->Prepare();
+	device->begin_frame_index = device->resources->Prepare();
 
 	device->pipelineManager->Prepare();
 	device->indexBufferDirty = true;
@@ -614,7 +612,14 @@ mgint MGG_GraphicsDevice_BeginFrame(MGG_GraphicsDevice* device)
 
 	device->is_recording = true;
 
-	return frameIndex;
+mgint MGG_GraphicsDevice_BeginFrame(MGG_GraphicsDevice* device)
+{
+	assert(device != nullptr);
+	assert(device->is_recording);
+	assert(device->begin_frame_index != -1);
+
+	// We do nothing here... everything is handled in Present().
+	return device->begin_frame_index;
 }
 
 void MGG_GraphicsDevice_Clear(MGG_GraphicsDevice* device, MGClearOptions options, Vector4& color, mgfloat depth, mgint stencil)
@@ -710,6 +715,9 @@ void MGG_GraphicsDevice_Present(MGG_GraphicsDevice* device, mgint currentFrame, 
 
 	// Cleanup resources for the next frame.
 	MGDX_DestroyFrameResources(device, device->frame, false);
+
+	// This begins the next frame, blocking if necessary.
+	MGDX_PrepareNextFrame(device);
 }
 
 void MGG_GraphicsDevice_SetBlendState(MGG_GraphicsDevice* device, MGG_BlendState* state, mgfloat factorR, mgfloat factorG, mgfloat factorB, mgfloat factorA)
