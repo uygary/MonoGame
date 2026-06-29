@@ -45,6 +45,18 @@ private:
     Microsoft::WRL::ComPtr<D3D12MA::Allocator> m_allocator;
     Microsoft::WRL::ComPtr<D3D12MA::Pool> m_transientBufferPool;
 
+    struct TempBuffer
+    {
+        uint64_t fence;
+        D3D12_HEAP_TYPE type;
+        D3D12_RESOURCE_DESC desc;
+        Microsoft::WRL::ComPtr<ID3D12Resource> buffer;
+        Microsoft::WRL::ComPtr<D3D12MA::Allocation> alloc;
+    };
+
+    std::mutex m_bufferMutex;
+    std::vector<TempBuffer> m_tempBuffers;
+
 public:
     Impl(MGSurfaceFormat backBufferFormat, unsigned int backBufferCount = 2) noexcept(false) {
         if (backBufferCount < 2 || backBufferCount > MAX_BACK_BUFFER_COUNT)
@@ -72,6 +84,7 @@ public:
                 delete m_msaaTargets[n];
         }
 
+        m_tempBuffers.clear();
         m_commandContext.reset();
         m_transientBufferPool.Reset();
         m_heaps.reset();
@@ -646,4 +659,68 @@ D3D12MA::Pool* Graphics::DeviceResources::GetTransientBufferPool() const {
 
 Texture* Graphics::DeviceResources::GetMainTarget() const noexcept {
     return pImpl->GetMainTarget();
+}
+
+ID3D12Resource* Graphics::DeviceResources::TakeUploadBuffer(D3D12_HEAP_TYPE type, D3D12_RESOURCE_STATES state, D3D12_RESOURCE_DESC& desc)
+{
+    std::lock_guard<std::mutex> lock(pImpl->m_bufferMutex);
+
+    uint64_t fence = pImpl->m_queue->PollCurrentFenceValue();
+
+    ID3D12Resource* buffer = nullptr;
+
+    auto iter = pImpl->m_tempBuffers.begin();
+    for (; iter != pImpl->m_tempBuffers.end(); iter++)
+    {
+        if (iter->fence > fence)
+            continue;
+
+        if (iter->type != type)
+            continue;
+
+        if (iter->desc.Width < desc.Width)
+            continue;
+
+        buffer = iter->buffer.Get();
+        iter->fence = 0;
+        break;
+    }
+
+    if (buffer == nullptr)
+    { 
+        Impl::TempBuffer upload;
+        upload.fence = 0;
+        upload.desc = desc;
+        upload.type = type;
+
+        D3D12MA::ALLOCATION_DESC allocDesc = { D3D12MA::ALLOCATION_FLAG_COMMITTED, type };
+        pImpl->m_allocator->CreateResource(
+            &allocDesc, &desc,
+            state, nullptr,
+            upload.alloc.ReleaseAndGetAddressOf(),
+            IID_GRAPHICS_PPV_ARGS(upload.buffer.ReleaseAndGetAddressOf()));
+
+        upload.buffer->SetName(L"tempBuffer");
+        upload.alloc->SetName(L"tempAlloc");
+        pImpl->m_tempBuffers.push_back(upload);
+
+        buffer = upload.buffer.Get();
+    }
+
+    return buffer;
+}
+
+void Graphics::DeviceResources::ReturnUploadBuffer(ID3D12Resource* buffer, uint64_t fence)
+{
+    std::lock_guard<std::mutex> lock(pImpl->m_bufferMutex);
+
+    auto iter = pImpl->m_tempBuffers.begin();
+    for (; iter != pImpl->m_tempBuffers.end(); iter++)
+    {
+        if (iter->buffer.Get() != buffer)
+            continue;
+
+        iter->fence = fence;
+        break;
+    }
 }
