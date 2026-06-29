@@ -144,6 +144,7 @@ struct MGG_GraphicsDevice
 	std::atomic<FrameCounter> frame = 0;
 	FrameCounter freeFrames = 0;
 	bool is_recording = false;
+	bool vsync = true;
 	int begin_frame_index = -1;
 
 	DeviceResources* resources = nullptr;
@@ -312,9 +313,10 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 			dxgiInfoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_ERROR, true);
 			dxgiInfoQueue->SetBreakOnSeverity(DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_CORRUPTION, true);
 
+
 			DXGI_INFO_QUEUE_MESSAGE_ID hide[] =
 			{
-				80 // IDXGISwapChain::GetContainingOutput: The swapchain's adapter does not control the output on which the swapchain's window resides. 
+				80, // IDXGISwapChain::GetContainingOutput: The swapchain's adapter does not control the output on which the swapchain's window resides.
 			};
 			DXGI_INFO_QUEUE_FILTER filter = {};
 			filter.DenyList.NumIDs = static_cast<UINT>(std::size(hide));
@@ -577,7 +579,9 @@ void MGG_GraphicsDevice_ResizeSwapchain(
 
 #endif
 
-	device->resources->CreateWindowSizeDependentResources(width, height, 0, 0, 0, 0, multiSampleCount);
+	device->vsync = syncInterval > 0;
+
+	device->resources->CreateWindowSizeDependentResources(width, height, 0, 0, 0, 0, multiSampleCount, device->vsync);
 	device->begin_frame_index = -1;
 
 	if (device->depthTexture)
@@ -699,7 +703,7 @@ void MGG_GraphicsDevice_Present(MGG_GraphicsDevice* device, mgint currentFrame, 
 	assert(device->is_recording);
 
 #if !defined(_GAMING_XBOX)
-	device->resources->Present(syncInterval, 0);
+	device->resources->Present(syncInterval, device->vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
 #else
 	device->resources->PresentX();
 #endif

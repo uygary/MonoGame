@@ -228,7 +228,7 @@ public:
     }
 
     // TODO: all that should probably be moved to the MG backend
-    void CreateWindowSizeDependentResources(DeviceResources* device, unsigned int width, unsigned int height, float r, float g, float b, float a, int msaaCount) {
+    void CreateWindowSizeDependentResources(DeviceResources* device, unsigned int width, unsigned int height, float r, float g, float b, float a, int msaaCount, bool vsync) {
         WaitForGpu();
 
 #if defined(_GAMING_XBOX)
@@ -257,11 +257,20 @@ public:
 #else
         const DXGI_FORMAT backBufferFormat = TextureFormatToDXGI_FORMAT(m_backBufferFormat);
 
+        // Setup the swap chain flags.
+        UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+        if (!vsync)
+            flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+
         // If the swap chain already exists, resize it, otherwise create one.
+        m_swapChain = nullptr;
+        /*
         if (m_swapChain) {
-            bool lost = HandleLost(m_swapChain->ResizeBuffers(m_backBufferCount, width, height, backBufferFormat, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH));
-            if (lost) return;
-        } else {
+            bool lost = HandleLost(m_swapChain->ResizeBuffers(m_backBufferCount, width, height, backBufferFormat, flags));
+            if (lost)
+                return;
+        } else*/
+        {
             // Create a descriptor for the swap chain.
             DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
             swapChainDesc.Width = width;
@@ -274,7 +283,7 @@ public:
             swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
             swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
             swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
-            swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+            swapChainDesc.Flags = flags;
 
             DXGI_SWAP_CHAIN_FULLSCREEN_DESC fsSwapChainDesc = {};
             fsSwapChainDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
@@ -383,7 +392,8 @@ public:
         m_window = window;
     }
 
-    bool HandleLost(HRESULT hr) {
+    bool HandleLost(HRESULT hr)
+    {
         // If the device was reset we must completely reinitialize the renderer.
         if (hr != DXGI_ERROR_DEVICE_REMOVED && hr != DXGI_ERROR_DEVICE_RESET) {
             ThrowIfFailed(hr);
@@ -504,7 +514,7 @@ private:
             }
         }
 
-#if !defined(NDEBUG)
+#if defined(_DEBUG)
         if (!adapter) {
             // Try WARP12 instead
             if (FAILED(m_dxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(adapter.ReleaseAndGetAddressOf())))) {
@@ -550,8 +560,8 @@ void DeviceResources::CreateDeviceResources(IDXGIFactory6* factory, IDXGIAdapter
 #endif
 
 // These resources need to be recreated every time the window size is changed.
-void DeviceResources::CreateWindowSizeDependentResources(int width, int height, float r, float g, float b, float a, int msaaCount) {
-    pImpl->CreateWindowSizeDependentResources(this, width, height, r, g, b, a, msaaCount);
+void DeviceResources::CreateWindowSizeDependentResources(int width, int height, float r, float g, float b, float a, int msaaCount, bool vsync) {
+    pImpl->CreateWindowSizeDependentResources(this, width, height, r, g, b, a, msaaCount, vsync);
 }
 
 // Prepare the command list and render target for rendering.
