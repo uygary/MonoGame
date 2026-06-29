@@ -631,6 +631,8 @@ static void MGDX_PrepareNextFrame(MGG_GraphicsDevice* device)
 	device->viewportDirty = true;
 	device->scissorDirty = true;
 
+	device->ringBuffer[device->context->m_backBufferIndex].Reset(device->resources);
+
 	device->is_recording = true;
 
 mgint MGG_GraphicsDevice_BeginFrame(MGG_GraphicsDevice* device)
