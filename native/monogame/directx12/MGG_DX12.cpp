@@ -141,7 +141,7 @@ const int MAX_TEXTURE_SLOTS = 16;
 
 struct MGG_GraphicsDevice
 {
-	FrameCounter frame = 0;
+	std::atomic<FrameCounter> frame = 0;
 	FrameCounter freeFrames = 0;
 	bool is_recording = false;
 	int begin_frame_index = -1;
@@ -181,6 +181,7 @@ struct MGG_GraphicsDevice
 	bool scissorDirty = false;
 
 	bool scissorTestEnable = false;
+	std::recursive_mutex resourceMutex;
 
 	std::queue<MGG_Buffer*> destroyBuffers;
 	std::queue<MGG_Texture*> destroyTextures;
@@ -637,6 +638,8 @@ static void MGDX_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter 
 {
 	assert(device != nullptr);
 
+	std::lock_guard lock(device->resourceMutex);
+
 	// Delete resources that haven't been used in a few frames 
 	{
 		while (device->destroyBuffers.size() > 0)
@@ -704,14 +707,18 @@ void MGG_GraphicsDevice_Present(MGG_GraphicsDevice* device, mgint currentFrame, 
 	++device->frame;
 	device->is_recording = false;
 
-	// Move the pending buffers to the free list 
-	// for reuse on the next frame.
-	device->free.insert(device->free.end(), device->pending.begin(), device->pending.end());
-	device->pending.clear();
+	{
+		std::lock_guard lock(device->resourceMutex);
 
-	// Buffers discarded this frame can be moved
-	// into the pending list for a future frame.
-	std::swap(device->pending, device->discarded);
+		// Move the pending buffers to the free list 
+		// for reuse on the next frame.
+		device->free.insert(device->free.end(), device->pending.begin(), device->pending.end());
+		device->pending.clear();
+
+		// Buffers discarded this frame can be moved
+		// into the pending list for a future frame.
+		std::swap(device->pending, device->discarded);
+	}
 
 	// Cleanup resources for the next frame.
 	MGDX_DestroyFrameResources(device, device->frame, false);
@@ -940,7 +947,7 @@ void MGG_GraphicsDevice_SetInputLayout(MGG_GraphicsDevice* device, MGG_InputLayo
 
 void MGDX_ApplyState(MGG_GraphicsDevice* device)
 {
-	auto currentFrame = device->frame;
+	auto currentFrame = device->frame.load();
 
 	auto cl = device->context->GetCommandList();
 	auto heaps = device->context->m_heaps;
@@ -1336,6 +1343,7 @@ void MGG_SamplerState_Destroy(MGG_GraphicsDevice* device, MGG_SamplerState* stat
 
 static MGG_Buffer* MGDX_FindFreeBuffer(MGG_GraphicsDevice* device, size_t dataSize, D3D12_HEAP_TYPE heap)
 {
+	std::lock_guard lock(device->resourceMutex);
 
 	// Search for the best fit from the free list.		
 	MGG_Buffer* best = nullptr;
@@ -1386,6 +1394,7 @@ static MGG_Buffer* MGDX_FindFreeBuffer(MGG_GraphicsDevice* device, size_t dataSi
 
 static MGG_Buffer* MGDX_BufferDiscard(MGG_GraphicsDevice* device, MGG_Buffer* buffer)
 {
+	std::lock_guard lock(device->resourceMutex);
 
 	// Get the info we need to find/allocate a new buffer.
 	auto dataSize = buffer->dataSize;
@@ -1463,6 +1472,7 @@ void MGG_Buffer_Destroy(MGG_GraphicsDevice* device, MGG_Buffer* buffer)
 		delete [] buffer->push;
 
 	// Queue the buffer for later destruction.
+	std::lock_guard lock(device->resourceMutex);
 	device->destroyBuffers.push(buffer);
 }
 
@@ -1501,6 +1511,7 @@ static ComPtr<ID3D12Resource> MGDX_Buffer_GetReadbackData(MGG_GraphicsDevice* de
 
 	cmd->Close(true);
 
+	std::lock_guard lock(device->resourceMutex);
 	device->discarded.push_back(readback);
 
 	return intermediateBuffer;
@@ -1661,6 +1672,7 @@ void MGG_Buffer_SetData(MGG_GraphicsDevice* device, MGG_Buffer*& buffer, mgint o
 		cmd->Close(false);
 		buffer->frame = device->frame;
 
+		std::lock_guard lock(device->resourceMutex);
 		device->discarded.push_back(upload);
 	}
 }
@@ -1803,6 +1815,7 @@ void MGG_Texture_Destroy(MGG_GraphicsDevice* device, MGG_Texture* texture)
 		return;
 
 	// Queue the texture for later destruction.
+	std::lock_guard lock(device->resourceMutex);
 	device->destroyTextures.push(texture);
 }
 
@@ -2151,6 +2164,7 @@ void MGG_OcclusionQuery_Destroy(MGG_GraphicsDevice* device, MGG_OcclusionQuery* 
 		return;
 
 	// Queue the occulusion query for later destruction.
+	std::lock_guard lock(device->resourceMutex);
 	device->destroyQuery.push(query);
 }
 

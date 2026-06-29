@@ -38,6 +38,7 @@ private:
     Texture* m_msaaTargets[MAX_BACK_BUFFER_COUNT];
     bool m_msaaEnabled = false;
 
+    std::unique_ptr<CommandQueue> m_queue;
     std::unique_ptr<CommandListPool> m_commandListPool;
     std::unique_ptr<CommandContext> m_commandContext;
     std::unique_ptr<Heaps> m_heaps;
@@ -62,7 +63,7 @@ public:
 
 #if defined(_GAMING_XBOX)
         // Ensure we present a blank screen before cleaning up resources.
-        m_commandListPool->GetCommandQueue()->PresentX(0, nullptr, nullptr);
+        m_queue->PresentX(0, nullptr, nullptr);
 #endif
 
         for (UINT n = 0; n < m_backBufferCount; n++) {
@@ -75,6 +76,7 @@ public:
         m_transientBufferPool.Reset();
         m_heaps.reset();
         m_commandListPool.reset();
+        m_queue.reset();
         m_swapChain.Reset();
         m_d3dDevice.Reset();
         m_dxgiFactory.Reset();
@@ -187,7 +189,14 @@ public:
 #if defined(_GAMING_XBOX)
         RegisterFrameEvents();
 #endif
-        m_commandListPool = std::make_unique<CommandListPool>(m_d3dDevice.Get(), D3D12_COMMAND_LIST_TYPE_DIRECT, L"Graphics List");
+
+        // We use a singular queue for all commands which means
+        // submission order defines execution order.
+        m_queue = std::make_unique<CommandQueue>(D3D12_COMMAND_LIST_TYPE_DIRECT, L"CommandQueue");
+        m_queue->Create(m_d3dDevice.Get());
+
+        m_commandListPool = std::make_unique<CommandListPool>(m_d3dDevice.Get(), m_queue.get());
+
         m_heaps = std::make_unique<Heaps>(m_d3dDevice.Get(), m_backBufferCount);
 
         {
@@ -223,10 +232,12 @@ public:
         WaitForGpu();
 
 #if defined(_GAMING_XBOX)
-        m_commandListPool->GetCommandQueue()->PresentX(0, nullptr, nullptr); // present a blank screen before cleaning up resources
+        m_queue->PresentX(0, nullptr, nullptr); // present a blank screen before cleaning up resources
 #endif
 
         // Release resources that are tied to the swap chain and update fence values.
+        m_commandContext->m_currentRT.clear();
+        m_commandContext->m_currentRTV.clear();
         for (UINT n = 0; n < m_backBufferCount; n++) {
             delete m_displayTargets[n];
             m_fenceValues[n] = m_fenceValues[m_backBufferIndex];
@@ -272,7 +283,7 @@ public:
             // Create a swap chain for the window.
             Microsoft::WRL::ComPtr<IDXGISwapChain1> swapChain;
             ThrowIfFailed(m_dxgiFactory->CreateSwapChainForHwnd(
-                m_commandListPool->GetCommandQueue()->Get(),
+                m_queue->Get(),
                 m_window,
                 &swapChainDesc,
                 &fsSwapChainDesc,
@@ -310,8 +321,13 @@ public:
 #endif
     }
 
-    uint32_t Prepare() {
-        m_commandListPool->GetCommandQueue()->WaitForFenceCPUBlocking(m_fenceValues[m_backBufferIndex]); // wait if the m_backBufferCount-th previous frame is still in flight
+    uint32_t Prepare()
+    {
+#if defined(_GAMING_XBOX)
+        WaitForOrigin();
+#endif
+
+        m_queue->WaitForFenceCPUBlocking(m_fenceValues[m_backBufferIndex]); // wait if the m_backBufferCount-th previous frame is still in flight
 
         m_heaps->Prepare(m_backBufferIndex);
         m_commandContext->Reset(m_backBufferIndex);
@@ -323,8 +339,8 @@ public:
     }
 
     void WaitForGpu() noexcept {
-        m_commandListPool->GetCommandQueue()->SignalFence();
-        m_commandListPool->GetCommandQueue()->WaitForIdle();
+        m_queue->SignalFence();
+        m_queue->WaitForIdle();
     }
 
     // Code common between Present and PresentX
@@ -348,7 +364,7 @@ public:
         planeParameters.ResourceCount = 1;
         planeParameters.ppResources = GetDisplayTarget()->GetAddressOf();
 
-        m_commandListPool->GetCommandQueue()->PresentX(1, &planeParameters, nullptr);
+        m_queue->PresentX(1, &planeParameters, nullptr);
 
         m_backBufferIndex = (m_backBufferIndex + 1) % m_backBufferCount;
     }
@@ -358,7 +374,7 @@ public:
 
         HandleLost(m_swapChain->Present(sync, flags));
 
-        m_fenceValues[m_backBufferIndex] = m_commandListPool->GetCommandQueue()->SignalFence();
+        m_fenceValues[m_backBufferIndex] = m_queue->SignalFence();
 
         m_backBufferIndex = m_swapChain->GetCurrentBackBufferIndex();
     }
@@ -390,6 +406,7 @@ public:
 
         m_commandContext.reset();
         m_commandListPool.reset();
+        m_queue.reset();
         m_heaps.reset();
         m_transientBufferPool.Reset();
         m_swapChain.Reset();
@@ -401,11 +418,11 @@ public:
 
 #if defined(_GAMING_XBOX)
     void Suspend() {
-        m_commandListPool->GetCommandQueue()->SuspendX(0);
+        m_queue->SuspendX(0);
     }
 
     void Resume() {
-        m_commandListPool->GetCommandQueue()->ResumeX();
+        m_queue->ResumeX();
 
         RegisterFrameEvents();
     }
@@ -559,12 +576,8 @@ void DeviceResources::Suspend() {
 void DeviceResources::Resume() {
     pImpl->Resume();
 }
-
-// For PresentX rendering, we should wait for the origin event just before processing input.
-void DeviceResources::WaitForOrigin() {
-    pImpl->WaitForOrigin();
-}
 #else
+
 void DeviceResources::Present(int sync, int flags) {
     pImpl->Present(sync, flags);
 }
@@ -606,7 +619,7 @@ Graphics::CommandList* DeviceResources::BeginCommandList() const {
 }
 
 CommandQueue* DeviceResources::GetCommandQueue() const {
-    return pImpl->m_commandListPool->GetCommandQueue();
+    return pImpl->m_queue.get();
 }
 
 Heaps* Graphics::DeviceResources::GetGraphicsHeaps() const {
