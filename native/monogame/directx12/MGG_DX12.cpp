@@ -151,6 +151,8 @@ struct MGG_GraphicsDevice
 	CommandContext* context = nullptr;
 	PipelineStateManager* pipelineManager = nullptr;
 
+	MGG_Shader* currentShader[2] = { nullptr, nullptr };
+
 	Texture* depthTexture = nullptr;
 
 	MGG_InputLayout* layout = nullptr;
@@ -172,6 +174,8 @@ struct MGG_GraphicsDevice
 	MGG_Texture* textures[2][MAX_TEXTURE_SLOTS];
 	bool texturesDirty = false;
 
+	std::map<uint32_t, D3D12_GPU_DESCRIPTOR_HANDLE> samplerSetHandles;
+	std::map<uint32_t, MGG_SamplerState*> samplerStates;
 	MGG_SamplerState* samplers[2][MAX_TEXTURE_SLOTS];
 	bool samplersDirty = false;
 
@@ -229,6 +233,8 @@ struct MGG_InputLayout
 
 struct MGG_Shader
 {
+	mgint maxTextureSlot;
+	mgint maxSamplerSlot;
 	MGShaderStage stage;
 	std::vector<uint8_t> bytecode;
 };
@@ -253,6 +259,8 @@ struct MGG_RasterizerState
 
 struct MGG_SamplerState
 {
+	std::atomic<mguint> refs = 0;
+	uint32_t hash = 0;
 	Sampler* sampler = nullptr;
 };
 
@@ -506,6 +514,13 @@ void MGG_GraphicsDevice_Destroy(MGG_GraphicsDevice* device)
 
 	MGDX_DestroyFrameResources(device, 0, true);
 
+	for (auto iter = device->samplerStates.begin(); iter != device->samplerStates.end(); iter++)
+	{
+		delete iter->second->sampler;
+		delete iter->second;
+	}
+	device->samplerStates.clear();
+
 	if (device->depthTexture)
 		delete device->depthTexture;
 
@@ -610,6 +625,7 @@ static void MGDX_PrepareNextFrame(MGG_GraphicsDevice* device)
 	device->vertexBuffersDirty = 0xFFFFFFFF;
 	memset(device->textures, 0, sizeof(device->textures));
 	device->texturesDirty = true;
+	device->samplerSetHandles.clear();
 	memset(device->samplers, 0, sizeof(device->samplers));
 	device->samplersDirty = true;
 	device->viewportDirty = true;
@@ -878,7 +894,7 @@ void MGG_GraphicsDevice_SetConstantBuffer(MGG_GraphicsDevice* device, MGShaderSt
 	}
 	else
 	{
-		//if (buffer->dirty)
+		if (buffer->dirty)
 			device->uniformsDirty |= 1 << (int)stage;
 	}
 }
@@ -899,7 +915,11 @@ void MGG_GraphicsDevice_SetSamplerState(MGG_GraphicsDevice* device, MGShaderStag
 	assert(slot >= 0);
 	assert(slot < MAX_TEXTURE_SLOTS);
 
-	device->samplers[(int)stage][slot] = state;
+	auto& sslot = device->samplers[(int)stage][slot];
+	if (sslot == state)
+		return;
+
+	sslot = state;
 	device->samplersDirty = true;
 }
 
@@ -929,10 +949,22 @@ void MGG_GraphicsDevice_SetShader(MGG_GraphicsDevice* device, MGShaderStage stag
 	assert(shader != nullptr);
 	assert(shader->stage == stage);
 
+	
 	if (stage == MGShaderStage::Vertex)
+	{
 		device->pipelineManager->impl->m_currentPSODesc.VS = { shader->bytecode.data(), shader->bytecode.size() };
+		device->currentShader[0] = shader;
+	}
 	else if (stage == MGShaderStage::Pixel)
+	{
 		device->pipelineManager->impl->m_currentPSODesc.PS = { shader->bytecode.data(), shader->bytecode.size() };
+		device->currentShader[1] = shader;
+	}
+
+	// Changing of the shader invalidates the root descriptor
+	// table and these need to be re-applied.
+	device->samplersDirty = true;
+	device->texturesDirty = true;
 }
 
 void MGG_GraphicsDevice_SetInputLayout(MGG_GraphicsDevice* device, MGG_InputLayout* layout)
@@ -1017,7 +1049,6 @@ void MGDX_ApplyState(MGG_GraphicsDevice* device)
 			if (!buffer)
 				continue;
 
-
 			if (i >= device->layout->streamStrides.size())
 			{
 				// Vertex buffer is out of sync with current layout.
@@ -1063,8 +1094,10 @@ void MGDX_ApplyState(MGG_GraphicsDevice* device)
 	if (device->texturesDirty)
 	{
 		for (int s = 0; s < 2; s++)
-		{			
-			for (int i = 0; i < MAX_TEXTURE_SLOTS; i++)
+		{
+			mgint maxSlot = device->currentShader[s]->maxTextureSlot;
+
+			for (int i = 0; i <= maxSlot; i++)
 			{
 				auto tex = device->textures[s][i];
 				if (tex == nullptr)
@@ -1074,7 +1107,12 @@ void MGDX_ApplyState(MGG_GraphicsDevice* device)
 				tex->frame = currentFrame;
 			}
 
-			cl->SetGraphicsRootDescriptorTable(s == (int)MGShaderStage::Pixel ? 3 : 2, heaps->ApplySRVsToShader());
+			if (maxSlot > -1)
+			{
+				UINT tableIndex = s == (int)MGShaderStage::Pixel ? 3 : 2;
+				D3D12_GPU_DESCRIPTOR_HANDLE handle = heaps->ApplySRVsToShader();
+				cl->SetGraphicsRootDescriptorTable(tableIndex, handle);
+			}
 		}
 
 		device->texturesDirty = false;
@@ -1084,16 +1122,43 @@ void MGDX_ApplyState(MGG_GraphicsDevice* device)
 	{
 		for (int s = 0; s < 2; s++)
 		{
-			for (int i = 0; i < MAX_TEXTURE_SLOTS; i++)
+			mgint maxSlot = device->currentShader[s]->maxSamplerSlot;
+			if (maxSlot == -1)
+				continue;
+
+			// TODO: We should be using a commutative hash in SetSamplerState.
+			// TODO: Hashing the pointers can be dangerous... use unique ids.
+
+			uint32_t hash = MG_ComputeHash((mgbyte*)device->samplers[s], maxSlot * sizeof(MGG_SamplerState*));
+			auto iter = device->samplerSetHandles.find(hash);			
+			if (iter != device->samplerSetHandles.end())
+			{
+				UINT tableIndex = s == (int)MGShaderStage::Pixel ? 5 : 4;
+				cl->SetGraphicsRootDescriptorTable(tableIndex, iter->second);
+				continue;
+			}
+
+			for (int i = 0; i <= maxSlot; i++)
 			{
 				auto samp = device->samplers[s][i];
+
+				// NOTE: This should not happen because the C#
+				// side always sets the samplers, but we're doing
+				// this to avoid a potential crash.
 				if (samp == nullptr)
 					continue;
 
 				heaps->CopySamplerToShader(samp->sampler->impl->m_handle, i);
 			}
 
-			cl->SetGraphicsRootDescriptorTable(s == (int)MGShaderStage::Pixel ? 5 : 4, heaps->ApplySamplersToShader());
+			// TODO: The shader visible sampler heap could be rewritten to be
+			// reused across all frames instead of rewritten every frame.
+
+			D3D12_GPU_DESCRIPTOR_HANDLE handle = heaps->ApplySamplersToShader();
+			device->samplerSetHandles[hash] = handle;
+
+			UINT tableIndex = s == (int)MGShaderStage::Pixel ? 5 : 4;
+			cl->SetGraphicsRootDescriptorTable(tableIndex, handle);
 		}
 
 		device->samplersDirty = false;
@@ -1327,8 +1392,24 @@ MGG_SamplerState* MGG_SamplerState_Create(MGG_GraphicsDevice* device, MGG_Sample
 	assert(device != nullptr);
 	assert(info != nullptr);
 
-	auto state = new MGG_SamplerState();
+	const uint32_t hash = MG_ComputeHash((mgbyte*)info, sizeof(MGG_SamplerState_Info));
+
+	std::lock_guard lock(device->resourceMutex);
+	auto state = device->samplerStates[hash];
+	if (state)
+	{
+		++state->refs;
+		return state;
+	}
+
+	state = new MGG_SamplerState();
+	memset(state, 0, sizeof(MGG_SamplerState));
+
 	state->sampler = new Graphics::Sampler(device->resources, info);
+	state->refs = 1;
+	state->hash = hash;
+	device->samplerStates[hash] = state;
+
 	return state;
 }
 
@@ -1340,9 +1421,7 @@ void MGG_SamplerState_Destroy(MGG_GraphicsDevice* device, MGG_SamplerState* stat
 	if (!state)
 		return;
 
-	delete state->sampler;
-
-	delete state;
+	--state->refs;
 }
 
 static MGG_Buffer* MGDX_FindFreeBuffer(MGG_GraphicsDevice* device, size_t dataSize, D3D12_HEAP_TYPE heap)
@@ -1954,6 +2033,8 @@ void MGG_Texture_SetData(MGG_GraphicsDevice* device, MGG_Texture* texture, mgint
 		texture->texture->SetData(device->resources, subres, data, dataBytes, rowPitch);
 	else
 		texture->texture->SetData(device->resources, subres, x, y, z, width, height, depth, data, dataBytes, rowPitch);
+
+	texture->frame = device->frame;
 }
 
 void MGG_Texture_GetData(MGG_GraphicsDevice* device, MGG_Texture* texture, mgint level, mgint slice, mgint x, mgint y, mgint z, mgint width, mgint height, mgint depth, mgbyte* data, mgint dataBytes)
@@ -2123,6 +2204,22 @@ MGG_Shader* MGG_Shader_Create(MGG_GraphicsDevice* device, MGShaderStage stage, m
 
 	auto shader = new MGG_Shader();
 	shader->stage = stage;
+
+	// Read the reflection info first.
+	if ((*(mgint*)bytecode) == 0xB00B00)
+	{
+		// Skip the id.
+		bytecode += sizeof(mgint); sizeInBytes -= sizeof(mgint);
+
+		shader->maxSamplerSlot = *(mgint*)bytecode; bytecode += sizeof(mgint); sizeInBytes -= sizeof(mgint);
+		shader->maxTextureSlot = *(mgint*)bytecode; bytecode += sizeof(mgint); sizeInBytes -= sizeof(mgint);
+	}
+	else
+	{
+		shader->maxSamplerSlot = 15;
+		shader->maxTextureSlot = 15;
+	}
+
 	shader->bytecode.resize(sizeInBytes);
 	memcpy(shader->bytecode.data(), bytecode, sizeInBytes);
 
