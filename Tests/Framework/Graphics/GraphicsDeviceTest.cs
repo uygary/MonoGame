@@ -326,7 +326,7 @@ namespace MonoGame.Tests.Graphics
         }
 #endif
 
-#if XNA || DIRECTX
+#if XNA || DIRECTX || DIRECTX12 || VULKAN
         [Test]
         public void DrawInstancedPrimitivesParameterValidation()
         {
@@ -454,11 +454,8 @@ namespace MonoGame.Tests.Graphics
             instanceVertexBuffer.Dispose();
             indexBuffer.Dispose();
         }
-#endif
 
-#if XNA || DIRECTX || DIRECTX12 || VULKAN
         [Test]
-        [RunOnUI]
         public void DrawInstancedPrimitivesUsesInstanceData()
         {
             var renderTarget = new RenderTarget2D(gd, 64, 32, false, SurfaceFormat.Color, DepthFormat.None);
