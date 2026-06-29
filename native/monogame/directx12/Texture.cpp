@@ -572,9 +572,7 @@ void Texture::AllowUAV() {
     impl->m_desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 }
 
-std::vector<D3D12_RESOURCE_BARRIER> Texture::s_batchedBarriers = {};
-
-void Texture::TransitionBatched(D3D12_RESOURCE_STATES newState) {
+void Texture::TransitionBatched(std::vector<D3D12_RESOURCE_BARRIER>& batch, D3D12_RESOURCE_STATES newState) {
     if (impl->m_currentState == newState)
         return;
 
@@ -583,26 +581,26 @@ void Texture::TransitionBatched(D3D12_RESOURCE_STATES newState) {
     if (impl->m_type == SurfaceType::SwapChainRenderTarget && newState == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
         return;
 
-    s_batchedBarriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+    batch.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
         impl->m_res.Get(), impl->m_currentState, newState
     ));
     impl->m_currentState = newState;
 }
 
-void Texture::TransitionBatched(D3D12_RESOURCE_STATES oldState, D3D12_RESOURCE_STATES newState, UINT subresource) {
-    s_batchedBarriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+void Texture::TransitionBatched(std::vector<D3D12_RESOURCE_BARRIER>& batch, D3D12_RESOURCE_STATES oldState, D3D12_RESOURCE_STATES newState, UINT subresource) {
+    batch.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
         impl->m_res.Get(), oldState, newState, subresource
     ));
 }
 
-void Texture::SendTransitionBatch(ID3D12GraphicsCommandList* commandList) {
-    if (s_batchedBarriers.empty())
+void Texture::SendTransitionBatch(std::vector<D3D12_RESOURCE_BARRIER>& batch, ID3D12GraphicsCommandList* commandList) {
+    if (batch.empty())
         return;
-    commandList->ResourceBarrier(s_batchedBarriers.size(), s_batchedBarriers.data());
-    s_batchedBarriers.clear();
+    commandList->ResourceBarrier(batch.size(), batch.data());
+    batch.clear();
 }
 
-void Texture::Transition(ID3D12GraphicsCommandList* commandList, D3D12_RESOURCE_STATES newState) {
-    TransitionBatched(newState);
-    SendTransitionBatch(commandList);
+void Texture::Transition(std::vector<D3D12_RESOURCE_BARRIER>& batch, ID3D12GraphicsCommandList* commandList, D3D12_RESOURCE_STATES newState) {
+    TransitionBatched(batch, newState);
+    SendTransitionBatch(batch, commandList);
 }
