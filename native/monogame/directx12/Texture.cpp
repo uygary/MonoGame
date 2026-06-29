@@ -136,8 +136,7 @@ void Texture::Create(DeviceResources* device, bool createViews) {
         impl->m_currentState,
         pClearValue,
         impl->m_alloc.ReleaseAndGetAddressOf(),
-        IID_GRAPHICS_PPV_ARGS(impl->m_res.ReleaseAndGetAddressOf())),
-        device->GetD3DDevice());
+        IID_GRAPHICS_PPV_ARGS(impl->m_res.ReleaseAndGetAddressOf())));
 
     switch (impl->m_type) {
     case SurfaceType::Texture:

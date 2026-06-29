@@ -33,6 +33,15 @@
 using namespace Graphics;
 using namespace Microsoft::WRL;
 
+
+bool MGG_EnableDebugLayer
+#if defined(_DEBUG)
+	= true;
+#else
+	= false;
+#endif
+
+
 typedef mguint FrameCounter;
 
 static void MGDX_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter currentFrame, mgbool free_all);
@@ -211,7 +220,7 @@ struct MGG_Buffer
 
 	Microsoft::WRL::ComPtr<D3D12MA::Allocation> m_alloc;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_res;
-
+	
 	inline D3D12_GPU_VIRTUAL_ADDRESS GpuAddress() { return m_res->GetGPUVirtualAddress(); }
 };
 
@@ -306,9 +315,13 @@ MGG_GraphicsSystem* MGG_GraphicsSystem_Create()
 	// Enable the debug layer (requires the Graphics Tools "optional feature").
 	//
 	// NOTE: Enabling the debug layer after device creation will invalidate the active device.
-	Microsoft::WRL::ComPtr<ID3D12Debug> debugController;
-	Microsoft::WRL::ComPtr<IDXGIInfoQueue> dxgiInfoQueue;
+	//
+	if (MGG_EnableDebugLayer)
 	{
+		Microsoft::WRL::ComPtr<ID3D12Debug> debugController;
+		Microsoft::WRL::ComPtr<IDXGIInfoQueue> dxgiInfoQueue;
+		Microsoft::WRL::ComPtr<ID3D12InfoQueue> dx12InfoQueue;
+
 		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(debugController.GetAddressOf()))))
 			debugController->EnableDebugLayer();
 		else
@@ -634,6 +647,7 @@ static void MGDX_PrepareNextFrame(MGG_GraphicsDevice* device)
 	device->ringBuffer[device->context->m_backBufferIndex].Reset(device->resources);
 
 	device->is_recording = true;
+}
 
 mgint MGG_GraphicsDevice_BeginFrame(MGG_GraphicsDevice* device)
 {

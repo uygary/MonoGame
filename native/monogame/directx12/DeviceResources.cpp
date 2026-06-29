@@ -91,7 +91,24 @@ public:
         m_commandListPool.reset();
         m_queue.reset();
         m_swapChain.Reset();
+
+#if defined(_DEBUG)
+        Microsoft::WRL::ComPtr<ID3D12DebugDevice> debugDevice;
+        if (SUCCEEDED(m_d3dDevice.As(&debugDevice))) {
+            debugDevice->ReportLiveDeviceObjects(
+                D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
+        }
+#endif
         m_d3dDevice.Reset();
+
+#if defined(_DEBUG)
+        Microsoft::WRL::ComPtr<IDXGIDebug1> dxgiDebug;
+        if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgiDebug)))) {
+            dxgiDebug->ReportLiveObjects(
+                DXGI_DEBUG_ALL,
+                DXGI_DEBUG_RLO_FLAGS(DXGI_DEBUG_RLO_DETAIL | DXGI_DEBUG_RLO_IGNORE_INTERNAL));
+        }
+#endif
         m_dxgiFactory.Reset();
 
         // Must be last as it will dump memory leaks.
@@ -136,9 +153,11 @@ public:
         // Enable the debug layer (requires the Graphics Tools "optional feature").
         //
         // NOTE: Enabling the debug layer after device creation will invalidate the active device.
-        Microsoft::WRL::ComPtr<ID3D12Debug> debugController;
-        Microsoft::WRL::ComPtr<IDXGIInfoQueue> dxgiInfoQueue;
+        if (MGG_EnableDebugLayer)
         {
+            Microsoft::WRL::ComPtr<ID3D12Debug> debugController;
+            Microsoft::WRL::ComPtr<IDXGIInfoQueue> dxgiInfoQueue;
+
             if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(debugController.GetAddressOf())))) {
                debugController->EnableDebugLayer();
             } else {
@@ -174,26 +193,34 @@ public:
         );
         ThrowIfFailed(hr);
 
-#ifndef NDEBUG
-        // Configure debug device (if active).
-        Microsoft::WRL::ComPtr<ID3D12InfoQueue> d3dInfoQueue;
-        if (SUCCEEDED(m_d3dDevice.As(&d3dInfoQueue))) {
-#ifdef _DEBUG
-            d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
-            d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
-#endif
-            D3D12_MESSAGE_ID hide[] =
+#if defined(_DEBUG)
+        if (MGG_EnableDebugLayer)
+        {
+            // Configure debug device (if active).
+            Microsoft::WRL::ComPtr<ID3D12InfoQueue> d3dInfoQueue;
+            if (SUCCEEDED(m_d3dDevice.As(&d3dInfoQueue)))
             {
-                D3D12_MESSAGE_ID_MAP_INVALID_NULLRANGE,
-                D3D12_MESSAGE_ID_UNMAP_INVALID_NULLRANGE,
-                // Workarounds for debug layer issues on hybrid-graphics systems
-                D3D12_MESSAGE_ID_EXECUTECOMMANDLISTS_WRONGSWAPCHAINBUFFERREFERENCE,
-                D3D12_MESSAGE_ID_RESOURCE_BARRIER_MISMATCHING_COMMAND_LIST_TYPE,
-            };
-            D3D12_INFO_QUEUE_FILTER filter = {};
-            filter.DenyList.NumIDs = static_cast<UINT>(std::size(hide));
-            filter.DenyList.pIDList = hide;
-            d3dInfoQueue->AddStorageFilterEntries(&filter);
+                d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
+                d3dInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
+
+                D3D12_MESSAGE_ID hide[] =
+                {
+                    D3D12_MESSAGE_ID_MAP_INVALID_NULLRANGE,
+                    D3D12_MESSAGE_ID_UNMAP_INVALID_NULLRANGE,
+
+                    // Workarounds for debug layer issues on hybrid-graphics systems
+                    D3D12_MESSAGE_ID_EXECUTECOMMANDLISTS_WRONGSWAPCHAINBUFFERREFERENCE,
+                    D3D12_MESSAGE_ID_RESOURCE_BARRIER_MISMATCHING_COMMAND_LIST_TYPE,
+
+                    // We cannot fix this until we expand the XNA API to support a default
+                    // clear color, but even then we may need to surpress that.
+                    D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
+                };
+                D3D12_INFO_QUEUE_FILTER filter = {};
+                filter.DenyList.NumIDs = static_cast<UINT>(std::size(hide));
+                filter.DenyList.pIDList = hide;
+                d3dInfoQueue->AddStorageFilterEntries(&filter);
+            }
         }
 #endif
 #endif
