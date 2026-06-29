@@ -4827,7 +4827,7 @@ static MGG_Buffer* MGVK_BufferDiscard(MGG_GraphicsDevice* device, MGG_Buffer* bu
 	}
 
 	// We didn't find a match, so allocate a new one.
-	buffer = MGG_Buffer_Create(device, type, dataSize);
+	buffer = MGG_Buffer_Create(device, type, false, dataSize);
 
 	return buffer;
 }
@@ -4886,9 +4886,9 @@ static MGG_Buffer* MGVK_Buffer_Create(MGG_GraphicsDevice* device, MGBufferType t
 	return buffer;
 }
 
-MGG_Buffer* MGG_Buffer_Create(MGG_GraphicsDevice* device, MGBufferType type, mgint sizeInBytes)
+MGG_Buffer* MGG_Buffer_Create(MGG_GraphicsDevice* device, MGBufferType type, mgbool dynamic, mgint sizeInBytes)
 {
-	return MGVK_Buffer_Create(device, type, sizeInBytes, false);
+	return MGVK_Buffer_Create(device, type, sizeInBytes, !dynamic);
 }
 
 static void MGVK_BufferCopyAndFlush(MGG_GraphicsDevice* device, MGG_Buffer* buffer, int destOffset, mgbyte* data, int dataBytes)
@@ -5033,11 +5033,6 @@ void MGG_Buffer_SetData(MGG_GraphicsDevice* device, MGG_Buffer*& buffer, mgint o
 	}
 
 	// Do the copy and flush.
-	auto size = elementCount * vertexStride;
-	if (elementSizeInBytes < vertexStride)
-	{
-		size -= vertexStride - elementSizeInBytes;
-	}
 	MGVK_BufferCopyAndFlush(device, buffer, offset, data, elementCount, elementSizeInBytes, vertexStride);
 }
 
