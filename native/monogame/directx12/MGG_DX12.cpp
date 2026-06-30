@@ -34,13 +34,7 @@ using namespace Graphics;
 using namespace Microsoft::WRL;
 
 
-bool MGG_EnableDebugLayer
-#if defined(_DEBUG)
-	= true;
-#else
-	= false;
-#endif
-
+bool MGG_EnableDebugLayer = false;
 
 typedef mguint FrameCounter;
 
