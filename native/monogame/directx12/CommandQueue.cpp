@@ -125,15 +125,13 @@ uint64_t CommandListPool::CloseList(CommandList* ctx, bool blocking)
 {
     uint64_t fenceValue = m_queue->ExecuteCommandList(ctx->m_list.Get());
 
-    {
-        std::lock_guard lock(m_mutex);
-        m_allocatorsRepo.push(std::pair<uint64_t, ID3D12CommandAllocator*>(fenceValue, ctx->m_allocator));
-        ctx->m_allocator = nullptr;
-        m_contextsRepo.push(ctx);
-    }
-
     if (blocking)
         m_queue->WaitForFenceCPUBlocking(fenceValue);
+
+    std::lock_guard lock(m_mutex);
+    m_allocatorsRepo.push(std::pair<uint64_t, ID3D12CommandAllocator*>(fenceValue, ctx->m_allocator));
+    ctx->m_allocator = nullptr;
+    m_contextsRepo.push(ctx);
 
     return fenceValue;
 }
