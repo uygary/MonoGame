@@ -255,7 +255,6 @@ struct MGG_GraphicsDevice
 	std::recursive_mutex queueMutex;
 	uint32_t graphicsQueueFamily = 0;
 	VkQueue queue = VK_NULL_HANDLE;
-	uint32_t queue_family_index = 0;
 	VkCommandPool cmdPool = VK_NULL_HANDLE;
 
 	std::recursive_mutex transferMutex;
@@ -781,7 +780,7 @@ MG_EXPORT void MGG_GraphicsDevice_GetNativeHandles(const MGG_GraphicsDevice* dev
 	handles->PhysicalDevice   = device->physicalDevice;
 	handles->LogicalDevice    = device->device;
 	handles->Queue            = static_cast<void*>(device->queue);
-	handles->QueueFamilyIndex = static_cast<mgint>(device->queue_family_index);
+	handles->QueueFamilyIndex = static_cast<mgint>(device->graphicsQueueFamily);
 	handles->QueueIndex       = 0;
 }
 
@@ -1405,7 +1404,6 @@ MGG_GraphicsDevice* MGG_GraphicsDevice_Create(MGG_GraphicsSystem* system, MGG_Gr
 
 		delete [] queueFamilyProps;
 	}
-	device->queue_family_index = queueFamilyIndex;
 
 	VkDeviceQueueCreateInfo queueCreateInfo {};
 	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
