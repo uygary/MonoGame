@@ -45,7 +45,6 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
     uint64_t m_lastCompletedFenceValue = 0;
     uint64_t m_nextFenceValue = m_lastCompletedFenceValue + 1;
-    Microsoft::WRL::Wrappers::Event m_fenceEvent;
 };
 
 // Simplification of https://github.com/microsoft/DirectX-Graphics-Samples/blob/master/MiniEngine/Core/CommandAllocatorPool.cpp
