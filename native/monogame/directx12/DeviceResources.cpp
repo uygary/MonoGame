@@ -702,7 +702,7 @@ Texture* Graphics::DeviceResources::GetMainTarget() const noexcept {
     return pImpl->GetMainTarget();
 }
 
-ID3D12Resource* Graphics::DeviceResources::TakeUploadBuffer(D3D12_HEAP_TYPE type, D3D12_RESOURCE_STATES state, D3D12_RESOURCE_DESC& desc)
+ID3D12Resource* Graphics::DeviceResources::TakeUploadBuffer(D3D12_HEAP_TYPE type, D3D12_RESOURCE_STATES state, D3D12_RESOURCE_DESC& desc) const
 {
     std::lock_guard<std::mutex> lock(pImpl->m_bufferMutex);
 
@@ -735,14 +735,20 @@ ID3D12Resource* Graphics::DeviceResources::TakeUploadBuffer(D3D12_HEAP_TYPE type
         upload.type = type;
 
         D3D12MA::ALLOCATION_DESC allocDesc = { D3D12MA::ALLOCATION_FLAG_COMMITTED, type };
-        pImpl->m_allocator->CreateResource(
+        HRESULT hr = pImpl->m_allocator->CreateResource(
             &allocDesc, &desc,
             state, nullptr,
             upload.alloc.ReleaseAndGetAddressOf(),
             IID_GRAPHICS_PPV_ARGS(upload.buffer.ReleaseAndGetAddressOf()));
 
-        upload.buffer->SetName(L"tempBuffer");
-        upload.alloc->SetName(L"tempAlloc");
+        ThrowIfFailed(hr);
+
+        if (upload.buffer)
+            upload.buffer->SetName(L"tempBuffer");
+
+        if (upload.alloc)
+            upload.alloc->SetName(L"tempAlloc");
+
         pImpl->m_tempBuffers.push_back(upload);
 
         buffer = upload.buffer.Get();
