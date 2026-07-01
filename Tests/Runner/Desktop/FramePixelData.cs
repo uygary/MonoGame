@@ -26,7 +26,9 @@ namespace MonoGame.Tests
 
         public unsafe void Save(string filename, string attachmentDescription = null)
         {
-			using (var stream = new FileStream(filename, FileMode.Create))
+            var fullPath = Path.GetFullPath(filename);
+
+            using (var stream = new FileStream(fullPath, FileMode.Create))
 			{
 				fixed (Color* ptr = &Data[0])
 				{
@@ -42,7 +44,6 @@ namespace MonoGame.Tests
 
             if (attachmentDescription != null)
             {
-                var fullPath = Path.GetFullPath(filename);
                 NUnit.Framework.TestContext.AddTestAttachment(fullPath, attachmentDescription);
             }
         }
