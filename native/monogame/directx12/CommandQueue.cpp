@@ -66,9 +66,25 @@ void CommandQueue::WaitForFenceCPUBlocking(uint64_t fenceValue)
         return;
 
     HANDLE evt = CreateEventEx(nullptr, nullptr, 0, EVENT_MODIFY_STATE | SYNCHRONIZE);
-    m_fence->SetEventOnCompletion(fenceValue, evt);
-    WaitForSingleObjectEx(evt, INFINITE, FALSE);
+    HRESULT hr = m_fence->SetEventOnCompletion(fenceValue, evt);
+    ThrowIfFailed(hr);
+
+    // 5 seconds should be more than enough.
+    // https://learn.microsoft.com/en-us/windows-hardware/drivers/display/timeout-detection-and-recovery
+    // "The default timeout period in Windows is two seconds."
+    // "If the GPU can't complete or preempt the current task within the TDR timeout period, the OS diagnoses that the GPU is frozen."
+    DWORD waitResult = WaitForSingleObjectEx(evt, 5000, FALSE);
+
     CloseHandle(evt);
+    if (waitResult == WAIT_TIMEOUT)
+    {
+        ThrowIfFailed(DXGI_ERROR_DEVICE_HUNG);
+    }
+    else if (waitResult == WAIT_FAILED)
+    {
+        DWORD win32Error = GetLastError();
+        ThrowIfFailed(HRESULT_FROM_WIN32(win32Error));
+    }
 
     std::lock_guard lock(m_fenceMutex);
     m_lastCompletedFenceValue = fenceValue;
