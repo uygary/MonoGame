@@ -723,14 +723,14 @@ ID3D12Resource* Graphics::DeviceResources::TakeUploadBuffer(D3D12_HEAP_TYPE type
             continue;
 
         buffer = iter->buffer.Get();
-        iter->fence = 0;
+        iter->fence = UINT64_MAX;
         break;
     }
 
     if (buffer == nullptr)
     { 
         Impl::TempBuffer upload;
-        upload.fence = 0;
+        upload.fence = UINT64_MAX;
         upload.desc = desc;
         upload.type = type;
 
