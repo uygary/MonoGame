@@ -42,7 +42,8 @@ namespace MonoGame.Tests
 
             if (attachmentDescription != null)
             {
-                NUnit.Framework.TestContext.AddTestAttachment(filename, attachmentDescription);
+                var fullPath = Path.GetFullPath(filename);
+                NUnit.Framework.TestContext.AddTestAttachment(fullPath, attachmentDescription);
             }
         }
     }
