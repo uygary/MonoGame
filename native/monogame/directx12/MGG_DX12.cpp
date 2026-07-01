@@ -531,6 +531,18 @@ void MGG_GraphicsDevice_Destroy(MGG_GraphicsDevice* device)
 	if (device->depthTexture)
 		delete device->depthTexture;
 
+	for (auto discardedBuffer : device->discarded)
+		delete discardedBuffer;
+	device->discarded.clear();
+
+	for (auto pendingBuffer : device->pending)
+		delete pendingBuffer;
+	device->pending.clear();
+
+	for (auto freeBuffer : device->free)
+		delete freeBuffer;
+	device->free.clear();
+
 	delete device->pipelineManager;
 	delete device->resources;
 
