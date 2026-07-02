@@ -89,10 +89,6 @@ namespace MonoGame.Tests.Graphics
             gdm = null;
             gd = null;
             content = null;
-            
-            // Force GC to ensure both system and GPU memory is freed up between tests.
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
 
             if (_framePrepared && !_framesChecked)
                 Assert.Fail("Initialized fixture for rendering but did not check frames.");
