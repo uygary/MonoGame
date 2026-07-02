@@ -117,6 +117,9 @@ void CommandQueue::ResumeX() {
 #endif
 
 CommandList* CommandListPool::Begin() {
+    // Ensure m_fenceMutex is acquired before m_mutex.
+    uint64_t currentFence = m_queue->PollCurrentFenceValue();
+
     CommandList* ctx = nullptr;
 
     std::lock_guard lock(m_mutex);
@@ -124,12 +127,12 @@ CommandList* CommandListPool::Begin() {
     if (m_contextsRepo.empty()) {
         ctx = new CommandList(this);
         m_contexts.emplace_back(ctx);
-        ctx->m_allocator = NewAllocator(m_queue->PollCurrentFenceValue());
+        ctx->m_allocator = NewAllocator(currentFence);
         ThrowIfFailed(m_device->CreateCommandList(0, m_queue->GetType(), ctx->m_allocator, nullptr, IID_GRAPHICS_PPV_ARGS(ctx->m_list.ReleaseAndGetAddressOf())));
         ctx->m_list->SetName((m_name + L" CommandList").c_str());
     } else {
         ctx = m_contextsRepo.front();
-        ctx->m_allocator = NewAllocator(m_queue->PollCurrentFenceValue());
+        ctx->m_allocator = NewAllocator(currentFence);
         ctx->m_list->Reset(ctx->m_allocator, nullptr);
         m_contextsRepo.pop();
     }
@@ -139,6 +142,7 @@ CommandList* CommandListPool::Begin() {
 
 uint64_t CommandListPool::CloseList(CommandList* ctx, bool blocking)
 {
+    // Ensure m_fenceMutex is acquired before m_mutex.
     uint64_t fenceValue = m_queue->ExecuteCommandList(ctx->m_list.Get());
 
     if (blocking)
