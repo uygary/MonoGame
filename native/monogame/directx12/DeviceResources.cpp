@@ -763,7 +763,7 @@ ID3D12Resource* Graphics::DeviceResources::TakeUploadBuffer(D3D12_HEAP_TYPE type
 
         // ALLOCATION_FLAG_COMMITTED uses dedicated allocation.
         // ALLOCATION_FLAG_NONE places the resource into existing preallocated pool.
-        D3D12MA::ALLOCATION_DESC allocDesc = { D3D12MA::ALLOCATION_FLAG_NONE, type };
+        D3D12MA::ALLOCATION_DESC allocDesc = { D3D12MA::ALLOCATION_FLAG_COMMITTED, type };
         HRESULT hr = pImpl->m_allocator->CreateResource(
             &allocDesc, &desc,
             state, nullptr,
