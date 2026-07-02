@@ -44,7 +44,7 @@ private:
     std::unique_ptr<CommandContext> m_commandContext;
     std::unique_ptr<Heaps> m_heaps;
     Microsoft::WRL::ComPtr<D3D12MA::Allocator> m_allocator;
-    Microsoft::WRL::ComPtr<D3D12MA::Pool> m_transientBufferPool;
+    //Microsoft::WRL::ComPtr<D3D12MA::Pool> m_transientBufferPool;
 
     struct TempBuffer
     {
@@ -87,7 +87,7 @@ public:
 
         m_tempBuffers.clear();
         m_commandContext.reset();
-        m_transientBufferPool.Reset();
+        //m_transientBufferPool.Reset();
         m_heaps.reset();
         m_commandListPool.reset();
         m_queue.reset();
@@ -255,14 +255,14 @@ public:
 #endif
             D3D12MA::CreateAllocator(&desc, &m_allocator);
 
-            D3D12MA::POOL_DESC poolDesc = {};
-            poolDesc.HeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD; // We use an UPLOAD heap for temporary VBs/IBs (best for CPU-write-once, GPU-read-once data cf https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_heap_type#constants)
-            poolDesc.Flags = D3D12MA::POOL_FLAG_ALGORITHM_LINEAR;
-            poolDesc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS;
-            poolDesc.BlockSize = MAX_BACK_BUFFER_COUNT * MAX_BUFFER_PER_FRAME * D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT; // Alignment of buffers is always 64KB
-            poolDesc.MinBlockCount = poolDesc.MaxBlockCount = 1;
-            poolDesc.MaxBlockCount = 1;
-            m_allocator->CreatePool(&poolDesc, &m_transientBufferPool);
+            //D3D12MA::POOL_DESC poolDesc = {};
+            //poolDesc.HeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD; // We use an UPLOAD heap for temporary VBs/IBs (best for CPU-write-once, GPU-read-once data cf https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_heap_type#constants)
+            //poolDesc.Flags = D3D12MA::POOL_FLAG_ALGORITHM_LINEAR;
+            //poolDesc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS;
+            //poolDesc.BlockSize = MAX_BACK_BUFFER_COUNT * MAX_BUFFER_PER_FRAME * D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT; // Alignment of buffers is always 64KB
+            //poolDesc.MinBlockCount = poolDesc.MaxBlockCount = 1;
+            //poolDesc.MaxBlockCount = 1;
+            //m_allocator->CreatePool(&poolDesc, &m_transientBufferPool);
         }
 
         m_commandContext = std::make_unique<CommandContext>(device);
@@ -472,7 +472,7 @@ public:
         m_commandListPool.reset();
         m_queue.reset();
         m_heaps.reset();
-        m_transientBufferPool.Reset();
+        //m_transientBufferPool.Reset();
         m_swapChain.Reset();
         m_d3dDevice.Reset();
         m_dxgiFactory.Reset();
@@ -694,9 +694,9 @@ D3D12MA::Allocator* Graphics::DeviceResources::GetAllocator() const {
     return pImpl->m_allocator.Get();
 }
 
-D3D12MA::Pool* Graphics::DeviceResources::GetTransientBufferPool() const {
-    return pImpl->m_transientBufferPool.Get();
-}
+//D3D12MA::Pool* Graphics::DeviceResources::GetTransientBufferPool() const {
+//    return pImpl->m_transientBufferPool.Get();
+//}
 
 Texture* Graphics::DeviceResources::GetMainTarget() const noexcept {
     return pImpl->GetMainTarget();
