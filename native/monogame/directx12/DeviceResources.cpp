@@ -729,11 +729,14 @@ ID3D12Resource* Graphics::DeviceResources::TakeUploadBuffer(D3D12_HEAP_TYPE type
 
     if (buffer == nullptr)
     {
+	    constexpr size_t MIN_BUFFER_POOL_SIZE = 64;
+
         // Evict old buffers that are too small to reduce memory pressure.
         // This will likely mean we'll keep creating larger and larger buffers.
 		// It's not ideal. Should we have more sophisticated memory management?
         auto evictionIter = pImpl->m_tempBuffers.begin();
-        while (evictionIter != pImpl->m_tempBuffers.end())
+        while (pImpl->m_tempBuffers.size() > MIN_BUFFER_POOL_SIZE
+			&& evictionIter != pImpl->m_tempBuffers.end())
         {
             if (evictionIter->fence <= fence
                 && evictionIter->desc.Width < desc.Width)
