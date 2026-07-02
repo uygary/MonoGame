@@ -29,9 +29,14 @@ uint64_t CommandQueue::ExecuteCommandList(ID3D12CommandList* commandList)
 {
     // Send the command list off to the GPU for processing.
     ThrowIfFailed(((ID3D12GraphicsCommandList*)commandList)->Close());
+
+    // Make sure the fence covers ExecuteCommandLists call.
+    std::lock_guard lock(m_fenceMutex);
     m_queue->ExecuteCommandLists(1, &commandList);
 
-    return SignalFence();
+    m_queue->Signal(m_fence.Get(), m_nextFenceValue);
+
+    return m_nextFenceValue++;
 }
 
 uint64_t CommandQueue::SignalFence()
