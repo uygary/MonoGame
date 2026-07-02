@@ -732,8 +732,8 @@ ID3D12Resource* Graphics::DeviceResources::TakeUploadBuffer(D3D12_HEAP_TYPE type
     {
         // TODO: These should be configurable.
         // https://github.com/MonoGame/MonoGame/issues/9382
-        constexpr size_t MAX_BUFFER_POOL_SIZE = 16;
-	    constexpr size_t MIN_BUFFER_POOL_SIZE = 8;
+        constexpr size_t MAX_BUFFER_POOL_SIZE = 64;
+	    constexpr size_t MIN_BUFFER_POOL_SIZE = 32;
 
         // Evict old buffers that are too small to reduce memory pressure.
         // This will likely mean we'll keep creating larger and larger buffers.
