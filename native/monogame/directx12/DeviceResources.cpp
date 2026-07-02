@@ -246,6 +246,7 @@ public:
             desc.pDevice = m_d3dDevice.Get();
 #if !defined(_GAMING_XBOX)
             desc.pAdapter = adapter;
+            desc.PreferredBlockSize = 4ull * 1024 * 1024;   // 4 MB instead of default 64MB.
 #else
             Microsoft::WRL::ComPtr<IDXGIDevice1> dxgiDevice;
             Microsoft::WRL::ComPtr<IDXGIAdapter> dxgiAdapter;
