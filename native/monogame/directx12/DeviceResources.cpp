@@ -246,7 +246,11 @@ public:
             desc.pDevice = m_d3dDevice.Get();
 #if !defined(_GAMING_XBOX)
             desc.pAdapter = adapter;
-            desc.PreferredBlockSize = 4ull * 1024 * 1024;   // 4 MB instead of default 64MB.
+
+            // TODO: This really needs to be configurable.
+            // Another reason for:
+            // // https://github.com/MonoGame/MonoGame/issues/9382
+            desc.PreferredBlockSize = 4ull * 1024 * 1024;   // 4 MB instead of default 64MB that it defaults to.
 #else
             Microsoft::WRL::ComPtr<IDXGIDevice1> dxgiDevice;
             Microsoft::WRL::ComPtr<IDXGIAdapter> dxgiAdapter;
