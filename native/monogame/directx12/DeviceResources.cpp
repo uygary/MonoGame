@@ -729,6 +729,8 @@ ID3D12Resource* Graphics::DeviceResources::TakeUploadBuffer(D3D12_HEAP_TYPE type
 
     if (buffer == nullptr)
     {
+        // TODO: These should be configurable.
+        // https://github.com/MonoGame/MonoGame/issues/9382
         constexpr size_t MAX_BUFFER_POOL_SIZE = 32;
 	    constexpr size_t MIN_BUFFER_POOL_SIZE = 16;
 
