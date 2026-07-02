@@ -1154,7 +1154,7 @@ void MGDX_ApplyState(MGG_GraphicsDevice* device)
 			// TODO: We should be using a commutative hash in SetSamplerState.
 			// TODO: Hashing the pointers can be dangerous... use unique ids.
 
-			uint32_t hash = MG_ComputeHash((mgbyte*)device->samplers[s], maxSlot * sizeof(MGG_SamplerState*));
+			uint32_t hash = MG_ComputeHash(reinterpret_cast<mgbyte*>(device->samplers[s]), (maxSlot + 1) * sizeof(MGG_SamplerState*));
 			auto iter = device->samplerSetHandles.find(hash);			
 			if (iter != device->samplerSetHandles.end())
 			{
