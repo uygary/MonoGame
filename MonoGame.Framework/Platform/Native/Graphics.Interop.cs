@@ -447,4 +447,40 @@ internal static unsafe partial class MGG
     public static extern byte OcclusionQuery_GetResult(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query, out int pixelCount);
 
     #endregion
+
+    #region OpenXR / Native Interop
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct MGP_NativeGraphicsHandles
+    {
+        public int Backend;
+        public nint Instance;
+        public nint PhysicalDevice;
+        public nint LogicalDevice;
+        public nint Queue;
+        public int QueueFamilyIndex;
+        public int QueueIndex;
+    }
+
+    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_GraphicsDevice_SetRequiredExtensions", ExactSpelling = true)]
+    public static extern void GraphicsDevice_SetRequiredExtensions(
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string? instanceExts,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string? deviceExts);
+
+    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_GraphicsDevice_GetNativeHandles", ExactSpelling = true)]
+    public static extern void GraphicsDevice_GetNativeHandles(
+        MGG_GraphicsDevice* device,
+        out MGP_NativeGraphicsHandles handles);
+    
+    [DllImport(MGP.MonoGameNativeDLL, EntryPoint = "MGG_RenderTarget_WrapNativeImage", ExactSpelling = true)]
+    public static extern MGG_Texture* RenderTarget_WrapNativeImage(
+        MGG_GraphicsDevice* device,
+        nint nativeImage,
+        SurfaceFormat format,
+        int width,
+        int height,
+        DepthFormat depthFormat,
+        int multiSampleCount);
+
+    #endregion OpenXR / Native Interop
 }

@@ -74,6 +74,56 @@ Texture::Texture(const Texture& other) {
     impl->m_currentState = D3D12_RESOURCE_STATE_COPY_DEST;
 }
 
+Texture::Texture(DeviceResources* device, ID3D12Resource* externalResource, MGSurfaceFormat format) {
+    impl = new InternalData();
+    impl->m_type = SurfaceType::RenderTarget;
+    impl->m_depthFormat = MGDepthFormat::None;
+    impl->m_levels = 1;
+    impl->m_dimension = TextureDimension::Texture2D;    // We're assuming this is an OpenXR image.
+
+    // OpenXR swap-chain images are in D3D12_RESOURCE_STATE_COMMON?
+    // I don't think that's guaranteed.
+    // TODO: How should we handle this?
+    impl->m_currentState = D3D12_RESOURCE_STATE_COMMON;
+    impl->m_alloc = nullptr; // No allocation. This is externally owned.
+
+    impl->m_res = externalResource; // TODO: Assigning to ComPtr will automatically AddRef, right?
+    impl->m_desc = externalResource->GetDesc();
+
+    // OpenXR runtime may create swap-chain images with TYPELESS formats.
+    // At least I think that's the case for 1.0.
+    // We should make sure to use the correct format for the view.
+    DXGI_FORMAT viewFormat = TextureFormatToDXGI_FORMAT(format);
+    impl->m_desc.Format = viewFormat;
+
+    // Create SRV descriptor
+    D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+    srv_desc.Format = viewFormat;
+    srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+    // TODO: I'm pretty sure this won't work, but I'm trying to stick to existing pattern.
+    bool isMSAA = CheckMSAA(device->GetD3DDevice());
+    srv_desc.ViewDimension = isMSAA ? D3D12_SRV_DIMENSION_TEXTURE2DMS : D3D12_SRV_DIMENSION_TEXTURE2D;
+
+    srv_desc.Texture2D.MostDetailedMip = 0;
+    srv_desc.Texture2D.MipLevels = impl->m_levels;
+    srv_desc.Texture2D.PlaneSlice = 0;
+    impl->m_srvHandle = device->GetGraphicsHeaps()->CreateSRVHandle(externalResource, srv_desc);
+
+    // Only if resource has ALLOW_RENDER_TARGET flag:
+    // https://stackoverflow.com/a/42044140/375051
+    // TODO: When can it not have this flag? Is it possible OpenXR swapchains could be created without it?
+    // Also, what to do if the flag is not set?
+    if (impl->m_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET) {
+        // Create RTV descriptor.
+        D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+        rtvDesc.Format = impl->m_desc.Format;
+        rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
+        impl->m_rtvHandles.push_back(device->GetGraphicsHeaps()->CreateRTVHandle(externalResource, rtvDesc));
+    }
+}
+
 #ifndef _GAMING_XBOX
 Texture::Texture(DeviceResources* device, IDXGISwapChain3* swapchain, int bufferId) {
     impl = new InternalData();
@@ -129,13 +179,13 @@ void Texture::Create(DeviceResources* device, bool createViews) {
         resDesc.Format = ConvertSRVtoResourceFormat(impl->m_desc.Format);
 
     D3D12MA::ALLOCATION_DESC allocDesc = { D3D12MA::ALLOCATION_FLAG_COMMITTED, D3D12_HEAP_TYPE_DEFAULT, heapFlags };
-    device->GetAllocator()->CreateResource(
+    ThrowIfFailed(device->GetAllocator()->CreateResource(
         &allocDesc,
         &resDesc,
         impl->m_currentState,
         pClearValue,
         impl->m_alloc.ReleaseAndGetAddressOf(),
-        IID_GRAPHICS_PPV_ARGS(impl->m_res.ReleaseAndGetAddressOf()));
+        IID_GRAPHICS_PPV_ARGS(impl->m_res.ReleaseAndGetAddressOf())));
 
     switch (impl->m_type) {
     case SurfaceType::Texture:
@@ -179,6 +229,7 @@ void Texture::Create(DeviceResources* device, bool createViews) {
             srvDesc.TextureCube.MipLevels = impl->m_levels;
             break;
         }
+
         impl->m_srvHandle = device->GetGraphicsHeaps()->CreateSRVHandle(impl->m_res.Get(), srvDesc);
     }
 
