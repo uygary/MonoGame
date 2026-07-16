@@ -27,7 +27,7 @@ public partial class GraphicsDevice
     private unsafe readonly MGG_Texture*[] _curRenderTargets = new MGG_Texture*[4];
     private readonly int[] _currentRenderTargetArraySlices = new int[4];
 
-    internal static int ShaderProfile
+    public static int ShaderProfile
     {
         get; private set;
     }
