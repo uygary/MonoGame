@@ -2111,7 +2111,7 @@ void MGVK_RecreateSwapChain(MGG_GraphicsDevice* device)
 		device->multiSampleCount,
 		device->syncInterval);
 
-	MGG_GraphicsDevice_SetRenderTargets(device, nullptr, nullptr, 0);
+    MGG_GraphicsDevice_SetRenderTargets(device, nullptr, nullptr, 0);
 }
 
 void MGG_GraphicsDevice_ResizeSwapchain(
