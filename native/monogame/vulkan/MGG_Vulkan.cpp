@@ -2015,6 +2015,7 @@ void MGVK_RecreateSwapChain(
 
 		device->swapchainCount = swapchainCount;
 		device->freeFrames = device->swapchainCount + 1;
+		device->frameIndex = device->frame % device->swapchainCount;
 
 		VkCommandBufferAllocateInfo comBufferInfo =
 		{
@@ -2825,6 +2826,11 @@ void MGG_GraphicsDevice_Present(MGG_GraphicsDevice* device, mgint currentFrame, 
 		res = vkQueuePresentKHR(device->queue, &presentInfo);
 	}
 
+	// Mark the submitted frame before a possible swapchain recreation below,
+	// which may reallocate device->frames and invalidate `frame`.
+	frame.image_index = -1;
+	frame.is_rendering = true;
+
 	// Cleanup any finished transfers as they may be
 	// done after the block waiting for the present.
 	{
@@ -2851,13 +2857,6 @@ void MGG_GraphicsDevice_Present(MGG_GraphicsDevice* device, mgint currentFrame, 
 	else
 	{
 		VK_CHECK_RESULT(res);
-	}
-
-	if (device->frameIndex < device->frames.size())
-	{
-		auto& currentFrameObj = device->frames[device->frameIndex];
-		currentFrameObj.image_index = -1;
-		currentFrameObj.is_rendering = true;
 	}
 
 	{
