@@ -271,8 +271,14 @@ public partial class GraphicsDevice
 
         if (Handle != null)
         {
-            MGG.GraphicsDevice_Destroy(Handle);
+            var handle = Handle;
             Handle = null;
+            // Resource finalizers that already read the old Handle must finish their
+            // MGG_*_Destroy enqueue before the native device is deleted. Later finalizers
+            // see Handle == null and no-op. Note: finalizers must never block on the
+            // thread disposing the GraphicsDevice, or this call deadlocks.
+            GC.WaitForPendingFinalizers();
+            MGG.GraphicsDevice_Destroy(handle);
         }
     }
 

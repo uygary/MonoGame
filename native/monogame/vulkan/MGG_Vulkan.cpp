@@ -14,6 +14,9 @@
 #include "SpriteEffect.vk.mgfxo.h"
 #include "mg_effect.h"
 
+#include <atomic>
+#include <mutex>
+
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #define VULKAN_HPP_NO_EXCEPTIONS
 #define VULKAN_HPP_TYPESAFE_CONVERSION 1
@@ -248,6 +251,9 @@ struct MGG_GraphicsDevice
 
 	VkDevice device = VK_NULL_HANDLE;
 
+	// Lock hierarchy across this file: resourceMutex -> transferMutex -> queueMutex
+	std::recursive_mutex resourceMutex;
+
 	std::recursive_mutex queueMutex;
 	uint32_t graphicsQueueFamily = 0;
 	VkQueue queue = VK_NULL_HANDLE;
@@ -296,8 +302,8 @@ struct MGG_GraphicsDevice
 	MGG_Buffer* indexBuffer = nullptr;
 	MGIndexElementSize indexBufferSize = MGIndexElementSize::SixteenBits;
 
-	uint64_t currentTextureId = 1;
-	uint64_t currentSamplerId = 1;
+	std::atomic<uint64_t> currentTextureId = 1;
+	std::atomic<uint64_t> currentSamplerId = 1;
 	MGG_Texture* textures[(mgint)MGShaderStage::Count][MAX_TEXTURE_SLOTS] = { 0 };
 	MGG_SamplerState* samplers[(mgint)MGShaderStage::Count][MAX_TEXTURE_SLOTS] = { 0 };
 	uint32_t textureSamplerDirty = 0;
@@ -306,7 +312,7 @@ struct MGG_GraphicsDevice
 	bool blendFactorDirty = false;
 	float blendFactor[4] = { 0 };
 
-	uint32_t currentShaderId = 0;
+	std::atomic<uint32_t> currentShaderId = 0;
 	MGG_Shader* shaders[(mgint)MGShaderStage::Count] = { 0 };
 	bool shaderDirty = false;
 	std::map<uint64_t, MGVK_Program*> shader_programs;
@@ -338,10 +344,13 @@ struct MGG_GraphicsDevice
 
 	std::queue<MGG_Buffer*> destroyBuffers;
 	std::queue<MGG_Texture*> destroyTextures;
+	std::queue<MGG_Shader*> destroyShaders;
 	std::queue<MGG_BlendState*> destroyBlendStates;
 	std::queue<MGG_RasterizerState*> destroyRasterizerStates;
 	std::queue<MGG_DepthStencilState*> destroyDepthStencilStates;
 	std::queue<MGG_SamplerState*> destroySamplers;
+	std::queue<MGG_InputLayout*> destroyInputLayouts;
+	std::queue<MGG_OcclusionQuery*> destroyQueries;
 
 	MGG_Buffer* discarded = nullptr;
 	MGG_Buffer* pending = nullptr;
@@ -395,6 +404,7 @@ struct MGG_Texture
 
 struct MGG_InputLayout
 {
+	FrameCounter frame = 0;
 	std::vector<VkVertexInputAttributeDescription> attributes;
 	std::vector<VkVertexInputBindingDescription> bindings;
 };
@@ -408,6 +418,7 @@ struct MGVK_DescriptorInfo
 
 struct MGG_Shader
 {
+	FrameCounter frame = 0;
 	uint32_t id;
 
 	MGShaderStage stage;
@@ -470,6 +481,7 @@ struct MGG_RasterizerState
 
 struct MGG_SamplerState
 {
+	FrameCounter frame = 0;
 	uint64_t id;
 	VkSampler sampler;
 	MGG_SamplerState_Info info;
@@ -477,6 +489,7 @@ struct MGG_SamplerState
 
 struct MGG_OcclusionQuery
 {
+	FrameCounter frame = 0;
 	VkQueryPool queryPool = VK_NULL_HANDLE;
 	mgbool isComplete = false;
 	mgbool inBeginEndBlock = false;
@@ -1639,13 +1652,27 @@ void MGG_GraphicsDevice_Destroy(MGG_GraphicsDevice* device)
 
 	// Be sure we're done drawing.
 	// Prevents some exceptions while shutting down.
-	vkDeviceWaitIdle(device->device);
+	{
+		std::lock_guard lock(device->queueMutex);
+		vkDeviceWaitIdle(device->device);
+	}
 
-	MGVK_WaitPendingTransfers(device, nullptr);
-
-	MGVK_CleanupPendingTransfers(device);
+	{
+		std::lock_guard lock(device->transferMutex);
+		MGVK_WaitPendingTransfers(device, nullptr);
+		MGVK_CleanupPendingTransfers(device);
+	}
 
 	MGVK_CleanupSwapChain(device);
+
+	while (!device->all_buffers.empty())
+		MGG_Buffer_Destroy(device, device->all_buffers[0]);
+	while (!device->all_textures.empty())
+		MGG_Texture_Destroy(device, device->all_textures[0]);
+	while (!device->all_shaders.empty())
+		MGG_Shader_Destroy(device, device->all_shaders[0]);
+
+	MGVK_DestroyFrameResources(device, 0, true);
 
 	for (auto pair : device->shader_programs)
 	{
@@ -1655,9 +1682,6 @@ void MGG_GraphicsDevice_Destroy(MGG_GraphicsDevice* device)
 	device->shader_programs.clear();
 
 	vkDestroyPipelineCache(device->device, device->pipelineCache, nullptr);
-
-	while (device->all_buffers.size() > 0)
-		MGG_Buffer_Destroy(device, device->all_buffers[0]);
 
 	for (size_t i = 0; i < device->swapchainCount; i++)
 	{
@@ -1676,12 +1700,6 @@ void MGG_GraphicsDevice_Destroy(MGG_GraphicsDevice* device)
 
 	vkDestroyCommandPool(device->device, device->transferPool, nullptr);
 	vkDestroyCommandPool(device->device, device->cmdPool, nullptr);
-
-	for (int i=0; i < 3; i++)
-		MGG_Texture_Destroy(device, device->nullTexture[i]);
-
-	for (size_t i = 0; i < device->swapchainCount; i++)
-		MGVK_DestroyFrameResources(device, i, true);
 
 	if (device->surface != nullptr)
 		vkDestroySurfaceKHR(device->instance, device->surface, nullptr);
@@ -1752,9 +1770,10 @@ void MGVK_RecreateSwapChain(
 	assert(device != nullptr);
 	assert(nativeWindowHandle != nullptr);
 
-	vkDeviceWaitIdle(device->device);
-
-	std::lock_guard lock(device->queueMutex);
+	{
+		std::lock_guard lock(device->queueMutex);
+		vkDeviceWaitIdle(device->device);
+	}
 
 	VkResult res;
 
@@ -1964,6 +1983,8 @@ void MGVK_RecreateSwapChain(
 	// including display changes and refresh rates.
 	if (swapchainCount != device->swapchainCount)
 	{
+		std::lock_guard lock(device->resourceMutex);
+
 		// Free any existing swapchain frame info and recreate it.
 		if (device->swapchains.size() > 0)
 		{
@@ -2277,13 +2298,17 @@ void MGVK_PrepareFrame(MGG_GraphicsDevice* device)
 	// swapchain is resized...  normally this occurs on Present.
 	MGVK_TryAcquireSwap(device, frame);
 
-	// Cleanup resources from the last time this frame was rendered.
-	MGVK_ProcessDescriptorCaches(device, device->frame);
+	{
+		std::lock_guard lock(device->resourceMutex);
 
-	// MGVK_DestroyFrameResources uses currentFrame and device->freeFrames to calculate age.
-	// We should pass the device->frame rather than swapchain_image_index.
-	// Otherwise age calculation will underflow.
-	MGVK_DestroyFrameResources(device, device->frame, false);
+		// Cleanup resources from the last time this frame was rendered.
+		MGVK_ProcessDescriptorCaches(device, device->frame);
+
+		// MGVK_DestroyFrameResources uses currentFrame and device->freeFrames to calculate age.
+		// We should pass the device->frame rather than swapchain_image_index.
+		// Otherwise age calculation will underflow.
+		MGVK_DestroyFrameResources(device, device->frame, false);
+	}
 
 	frame.uniformOffset = 0;
 	if (frame.uniforms == NULL)
@@ -2441,7 +2466,30 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter 
 				break;
 
 			device->destroyBuffers.pop();
-			vmaDestroyBuffer(device->allocator, buffer->buffer, buffer->allocation);
+
+			for (int i = 0; i < 8; i++)
+			{
+				if (device->vertexBuffers[i] == buffer)
+					device->vertexBuffers[i] = nullptr;
+			}
+			if (device->indexBuffer == buffer)
+				device->indexBuffer = nullptr;
+			for (int i = 0; i < 2; i++)
+			{
+				if (device->uniforms[i] == buffer)
+					device->uniforms[i] = nullptr;
+			}
+
+			if (buffer->push)
+			{
+				delete [] buffer->push;
+			}
+			else
+			{
+				if (buffer->mapped)
+					vmaUnmapMemory(device->allocator, buffer->allocation);
+				vmaDestroyBuffer(device->allocator, buffer->buffer, buffer->allocation);
+			}
 			delete buffer;
 		}
 
@@ -2449,10 +2497,21 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter 
 		{
 			auto texture = device->destroyTextures.front();
 			auto diff = currentFrame - texture->frame;
+			// A texture disposed while still bound and sampled keeps getting re-stamped and blocks
+			// this queue until it is unbound; freeing it earlier would be a GPU use-after-free.
 			if (!free_all && diff < device->freeFrames)
 				break;
 
 			device->destroyTextures.pop();
+
+			for (int stage = 0; stage < (int)MGShaderStage::Count; stage++)
+			{
+				for (int slot = 0; slot < MAX_TEXTURE_SLOTS; slot++)
+				{
+					if (device->textures[stage][slot] == texture)
+						device->textures[stage][slot] = nullptr;
+				}
+			}
 
 			{
 				std::lock_guard lock(device->transferMutex);
@@ -2500,8 +2559,67 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter 
 			{
 				vmaDestroyImage(device->allocator, texture->image, texture->allocation);
 			}
-			mg_remove(device->all_textures, texture);
 			delete texture;
+		}
+
+		while (!device->destroyShaders.empty())
+		{
+			auto shader = device->destroyShaders.front();
+			auto diff = currentFrame - shader->frame;
+			if (!free_all && diff < device->freeFrames)
+				break;
+
+			device->destroyShaders.pop();
+
+			if (device->shaders[(mgint)shader->stage] == shader)
+				device->shaders[(mgint)shader->stage] = nullptr;
+
+			for (auto itr = device->shader_programs.cbegin(); itr != device->shader_programs.cend();)
+			{
+				auto prog = itr->second;
+				if (prog->vertex == shader || prog->pixel == shader)
+				{
+					MGVK_DestroyPipelines(device, [prog](const MGVK_PipelineState& s) { return s.program == prog; });
+					if (device->pipelineState.program == prog)
+						device->pipelineState.program = nullptr;
+
+					vkDestroyPipelineLayout(device->device, prog->layout, nullptr);
+					delete prog;
+					itr = device->shader_programs.erase(itr);
+				}
+				else
+				{
+					++itr;
+				}
+			}
+
+			delete [] shader->bufferInfo;
+			delete [] shader->imageInfo;
+			delete [] shader->writes;
+
+			for (auto pair : shader->usedSets)
+			{
+				delete pair.second;
+			}
+
+			while (shader->freeSets.size() > 0)
+			{
+				auto free = shader->freeSets.front();
+				shader->freeSets.pop();
+				delete free;
+			}
+
+			vkDestroyDescriptorSetLayout(device->device, shader->setLayout, nullptr);
+
+			vkDestroyDescriptorPool(device->device, shader->pool, nullptr);
+			if (shader->poolInfo)
+			{
+				delete [] shader->poolInfo->pPoolSizes;
+				delete shader->poolInfo;
+			}
+
+			vkDestroyShaderModule(device->device, shader->module, nullptr);
+			delete shader;
 		}
 
 		while (device->destroyBlendStates.size() > 0)
@@ -2514,6 +2632,8 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter 
 			device->destroyBlendStates.pop();
 
 			MGVK_DestroyPipelines(device, [state](const MGVK_PipelineState& s) { return s.blendState == state; });
+			if (device->pipelineState.blendState == state)
+				device->pipelineState.blendState = nullptr;
 			delete state;
 		}
 
@@ -2527,6 +2647,8 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter 
 			device->destroyRasterizerStates.pop();
 
 			MGVK_DestroyPipelines(device, [state](const MGVK_PipelineState& s) { return s.rasterizerState == state; });
+			if (device->pipelineState.rasterizerState == state)
+				device->pipelineState.rasterizerState = nullptr;
 			delete state;
 		}
 
@@ -2540,15 +2662,63 @@ static void MGVK_DestroyFrameResources(MGG_GraphicsDevice* device, FrameCounter 
 			device->destroyDepthStencilStates.pop();
 
 			MGVK_DestroyPipelines(device, [state](const MGVK_PipelineState& s) { return s.depthStencilState == state; });
+			if (device->pipelineState.depthStencilState == state)
+				device->pipelineState.depthStencilState = nullptr;
 			delete state;
 		}
 
 		while (device->destroySamplers.size() > 0)
 		{
 			auto sampler = device->destroySamplers.front();
+			auto diff = currentFrame - sampler->frame;
+			if (!free_all && diff < device->freeFrames)
+				break;
+
 			device->destroySamplers.pop();
+
+			for (int stage = 0; stage < (int)MGShaderStage::Count; stage++)
+			{
+				for (int slot = 0; slot < MAX_TEXTURE_SLOTS; slot++)
+				{
+					if (device->samplers[stage][slot] == sampler)
+						device->samplers[stage][slot] = nullptr;
+				}
+			}
+
 			vkDestroySampler(device->device, sampler->sampler, nullptr);
 			delete sampler;
+		}
+
+		while (!device->destroyInputLayouts.empty())
+		{
+			auto layout = device->destroyInputLayouts.front();
+			auto diff = currentFrame - layout->frame;
+			if (!free_all && diff < device->freeFrames)
+				break;
+
+			device->destroyInputLayouts.pop();
+
+			MGVK_DestroyPipelines(device, [layout](const MGVK_PipelineState& s) { return s.layout == layout; });
+			if (device->pipelineState.layout == layout)
+				device->pipelineState.layout = nullptr;
+
+			delete layout;
+		}
+
+		while (!device->destroyQueries.empty())
+		{
+			auto query = device->destroyQueries.front();
+			auto diff = currentFrame - query->frame;
+			if (!free_all && diff < device->freeFrames)
+				break;
+
+			device->destroyQueries.pop();
+
+			mg_remove(device->deferredOcclusionQueries, query);
+			if (query->queryPool != VK_NULL_HANDLE)
+				vkDestroyQueryPool(device->device, query->queryPool, nullptr);
+
+			delete query;
 		}
 	}
 }
@@ -2683,42 +2853,42 @@ void MGG_GraphicsDevice_Present(MGG_GraphicsDevice* device, mgint currentFrame, 
 		VK_CHECK_RESULT(res);
 	}
 
-	frame.image_index = -1;
-	frame.is_rendering = true;
-
-	// Move the pending buffers to the free list
-	// for reuse on the next frame.
-	if (device->pending != nullptr)
+	if (device->frameIndex < device->frames.size())
 	{
-		auto last = device->pending;
-		while (true)
-		{
-			if (last->next == nullptr)
-				break;
-			last = last->next;
-		}
-
-		last->next = device->free;
-		device->free = device->pending;
-		device->pending = nullptr;
+		auto& currentFrameObj = device->frames[device->frameIndex];
+		currentFrameObj.image_index = -1;
+		currentFrameObj.is_rendering = true;
 	}
 
-	// Buffers discarded this frame can be moved
-	// into the pending list for a future frame.
-	device->pending = device->discarded;
-	device->discarded = nullptr;
-
 	{
-		std::lock_guard lock(device->queueMutex);
+		std::lock_guard lock(device->resourceMutex);
+
+		// Move the pending buffers to the free list
+		// for reuse on the next frame.
+		if (device->pending != nullptr)
+		{
+			auto last = device->pending;
+			while (last->next != nullptr)
+				last = last->next;
+
+			last->next = device->free;
+			device->free = device->pending;
+			device->pending = nullptr;
+		}
+
+		// Buffers discarded this frame can be moved
+		// into the pending list for a future frame.
+		device->pending = device->discarded;
+		device->discarded = nullptr;
 
 		// Increment to the next frame.
 		++device->frame;
 		device->frameIndex = device->frame % device->swapchainCount;
-
-		// Get the next swap frame here so that any blocking
-		// waiting for the GPU to finish occurs during Present.
-		MGVK_PrepareFrame(device);
 	}
+
+	// Get the next swap frame here so that any blocking
+	// waiting for the GPU to finish occurs during Present.
+	MGVK_PrepareFrame(device);
 }
 
 void MGG_GraphicsDevice_SetBlendState(MGG_GraphicsDevice* device, MGG_BlendState* state, mgfloat factorR, mgfloat factorG, mgfloat factorB, mgfloat factorA)
@@ -3509,7 +3679,10 @@ static void MGVK_UpdateDescriptors(MGG_GraphicsDevice* device, FrameCounter curr
 
 		auto sampler = device->samplers[(mgint)shader->stage][i];
 		if (sampler)
+		{
+			sampler->frame = currentFrame;
 			hash = MG_ComputeHash(sampler->id, hash);
+		}
 
 		// Early out if there are no more used slots.
 		dirty &= ~mask;
@@ -3797,6 +3970,7 @@ static void MGVK_UpdatePipeline(MGG_GraphicsDevice* device, VkCommandBuffer comm
 	device->pipelineState.blendState->frame = currentFrame;
 	device->pipelineState.depthStencilState->frame = currentFrame;
 	device->pipelineState.rasterizerState->frame = currentFrame;
+	device->pipelineState.layout->frame = currentFrame;
 
 	// Update the shader program.
 	if (device->shaderDirty)
@@ -3816,6 +3990,9 @@ static void MGVK_UpdatePipeline(MGG_GraphicsDevice* device, VkCommandBuffer comm
 
 		device->shaderDirty = false;
 	}
+
+	device->pipelineState.program->vertex->frame = currentFrame;
+	device->pipelineState.program->pixel->frame = currentFrame;
 
 	// First update the pipeline if we need to.
 	if (device->pipelineStateDirty)
@@ -3910,12 +4087,13 @@ static void MGVK_UpdatePipeline(MGG_GraphicsDevice* device, VkCommandBuffer comm
 
 	if (device->vertexBuffersDirty)
 	{
-		// TODO: Fix multiple vertex streams!
+		// Only bind the streams the current input layout uses; higher slots may hold stale buffers.
+		const int streamCount = (int)device->pipelineState.layout->bindings.size();
 
 		int count = 0;
 		VkDeviceSize offsets[8];
 		VkBuffer buffers[8];
-		for (int i = 0; i < 8; i++)
+		for (int i = 0; i < streamCount; i++)
 		{
 			offsets[i] = device->vertexOffsets[i];
 			buffers[i] = nullptr;
@@ -4004,6 +4182,7 @@ void MGG_GraphicsDevice_DrawIndexed(MGG_GraphicsDevice* device, MGPrimitiveType 
 
 	auto indexBuffer = device->indexBuffer;
 	assert(indexBuffer != nullptr);
+	indexBuffer->frame = device->frame;
 
 	// TODO: Detect if we need to rebind the same index buffer?
 	vkCmdBindIndexBuffer(frame.commandBuffer, indexBuffer->buffer, 0, device->indexBufferSize == MGIndexElementSize::SixteenBits ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
@@ -4047,6 +4226,7 @@ void MGG_GraphicsDevice_DrawIndexedInstanced(
 
 	auto indexBuffer = device->indexBuffer;
 	assert(indexBuffer != nullptr);
+	indexBuffer->frame = device->frame;
 	vkCmdBindIndexBuffer(frame.commandBuffer, indexBuffer->buffer, 0, device->indexBufferSize == MGIndexElementSize::SixteenBits ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
 
 	auto indexCount = MGVK_GetIndexCount(primitiveType, primitiveCount);
@@ -4471,6 +4651,8 @@ MGG_BlendState* MGG_BlendState_Create(MGG_GraphicsDevice* device, MGG_BlendState
 	assert(device != nullptr);
 	assert(infos != nullptr);
 
+	std::lock_guard lock(device->resourceMutex);
+
 	// First check the cache.
 	uint32_t hash = MG_ComputeHash((mgbyte*)infos, sizeof(MGG_BlendState_Info) * 4);
 	MGG_BlendState* cached = device->blendStates[hash];
@@ -4508,11 +4690,10 @@ MGG_BlendState* MGG_BlendState_Create(MGG_GraphicsDevice* device, MGG_BlendState
 
 void MGG_BlendState_Destroy(MGG_GraphicsDevice* device, MGG_BlendState* state)
 {
-	assert(device != nullptr);
-	assert(state != nullptr);
-
-	if (!state)
+	if (!device || !state)
 		return;
+
+	std::lock_guard lock(device->resourceMutex);
 
 	// Release the reference.
 	state->refs--;
@@ -4520,6 +4701,7 @@ void MGG_BlendState_Destroy(MGG_GraphicsDevice* device, MGG_BlendState* state)
 		return;
 
 	// Queue the state for later destruction.
+	state->frame = device->frame;
 	device->destroyBlendStates.push(state);
 	device->blendStates.erase(state->hash);
 }
@@ -4579,6 +4761,8 @@ MGG_DepthStencilState* MGG_DepthStencilState_Create(MGG_GraphicsDevice* device, 
 	assert(device != nullptr);
 	assert(info != nullptr);
 
+	std::lock_guard lock(device->resourceMutex);
+
 	// First check the cache.
 	uint32_t hash = MG_ComputeHash((mgbyte*)info, sizeof(MGG_DepthStencilState_Info));
 	MGG_DepthStencilState* cached = device->depthStencilStates[hash];
@@ -4633,11 +4817,10 @@ MGG_DepthStencilState* MGG_DepthStencilState_Create(MGG_GraphicsDevice* device, 
 
 void MGG_DepthStencilState_Destroy(MGG_GraphicsDevice* device, MGG_DepthStencilState* state)
 {
-	assert(device != nullptr);
-	assert(state != nullptr);
-
-	if (!state)
+	if (!device || !state)
 		return;
+
+	std::lock_guard lock(device->resourceMutex);
 
 	// Release the reference.
 	state->refs--;
@@ -4645,6 +4828,7 @@ void MGG_DepthStencilState_Destroy(MGG_GraphicsDevice* device, MGG_DepthStencilS
 		return;
 
 	// Queue the state for later destruction.
+	state->frame = device->frame;
 	device->destroyDepthStencilStates.push(state);
 	device->depthStencilStates.erase(state->hash);
 }
@@ -4682,6 +4866,8 @@ MGG_RasterizerState* MGG_RasterizerState_Create(MGG_GraphicsDevice* device, MGG_
 {
 	assert(device != nullptr);
 	assert(info != nullptr);
+
+	std::lock_guard lock(device->resourceMutex);
 
 	// First check the cache.
 	uint32_t hash = MG_ComputeHash((mgbyte*)info, sizeof(MGG_RasterizerState_Info));
@@ -4723,11 +4909,10 @@ MGG_RasterizerState* MGG_RasterizerState_Create(MGG_GraphicsDevice* device, MGG_
 
 void MGG_RasterizerState_Destroy(MGG_GraphicsDevice* device, MGG_RasterizerState* state)
 {
-	assert(device != nullptr);
-	assert(state != nullptr);
-
-	if (!state)
+	if (!device || !state)
 		return;
+
+	std::lock_guard lock(device->resourceMutex);
 
 	// Release the reference.
 	state->refs--;
@@ -4735,6 +4920,7 @@ void MGG_RasterizerState_Destroy(MGG_GraphicsDevice* device, MGG_RasterizerState
 		return;
 
 	// Queue the state for later destruction.
+	state->frame = device->frame;
 	device->destroyRasterizerStates.push(state);
 	device->rasterizerStates.erase(state->hash);
 }
@@ -4871,12 +5057,11 @@ MGG_SamplerState* MGG_SamplerState_Create(MGG_GraphicsDevice* device, MGG_Sample
 
 void MGG_SamplerState_Destroy(MGG_GraphicsDevice* device, MGG_SamplerState* state)
 {
-	assert(device != nullptr);
-	assert(state != nullptr);
-
-	if (!state)
+	if (!device || !state)
 		return;
 
+	std::lock_guard lock(device->resourceMutex);
+	state->frame = device->frame;
 	device->destroySamplers.push(state);
 }
 
@@ -4886,45 +5071,49 @@ static MGG_Buffer* MGVK_BufferDiscard(MGG_GraphicsDevice* device, MGG_Buffer* bu
 	auto dataSize = buffer->dataSize;
 	auto type = buffer->type;
 
-	// Discard the current buffer.
-	assert(buffer->next == nullptr);
-	buffer->next = device->discarded;
-	device->discarded = buffer;
-	buffer = nullptr;
-
-	// Search for the best fit from the free list.
-	MGG_Buffer** curr = &device->free;
-	MGG_Buffer** best = nullptr;
-	while (*curr != nullptr)
 	{
-		if ((*curr)->type == type)
-		{
-			auto currSize = (*curr)->actualSize;
+		std::lock_guard lock(device->resourceMutex);
 
-			if (currSize >= dataSize)
+		// Discard the current buffer.
+		assert(buffer->next == nullptr);
+		buffer->next = device->discarded;
+		device->discarded = buffer;
+		buffer = nullptr;
+
+		// Search for the best fit from the free list.
+		MGG_Buffer** curr = &device->free;
+		MGG_Buffer** best = nullptr;
+		while (*curr != nullptr)
+		{
+			if ((*curr)->type == type)
 			{
-				if (best == nullptr || (*best)->actualSize > currSize)
+				auto currSize = (*curr)->actualSize;
+
+				if (currSize >= dataSize)
 				{
-					best = curr;
-					if (currSize == dataSize)
-						break;
+					if (best == nullptr || (*best)->actualSize > currSize)
+					{
+						best = curr;
+						if (currSize == dataSize)
+							break;
+					}
 				}
 			}
+
+			curr = &(*curr)->next;
 		}
 
-		curr = &(*curr)->next;
-	}
-
-	// Did we find a match?
-	if (best != nullptr)
-	{
-		buffer = *best;
-		*best = buffer->next;
-		buffer->next = nullptr;
-		buffer->dataSize = dataSize;
-		//buffer->dirtyMin = 0;
-		//buffer->dirtyMax = 0;
-		return buffer;
+		// Did we find a match?
+		if (best != nullptr)
+		{
+			buffer = *best;
+			*best = buffer->next;
+			buffer->next = nullptr;
+			buffer->dataSize = dataSize;
+			//buffer->dirtyMin = 0;
+			//buffer->dirtyMax = 0;
+			return buffer;
+		}
 	}
 
 	// We didn't find a match, so allocate a new one.
@@ -4983,7 +5172,10 @@ static MGG_Buffer* MGVK_Buffer_Create(MGG_GraphicsDevice* device, MGBufferType t
 		VK_CHECK_RESULT(res);
 	}
 
-	device->all_buffers.push_back(buffer);
+	{
+		std::lock_guard lock(device->resourceMutex);
+		device->all_buffers.push_back(buffer);
+	}
 
 	return buffer;
 }
@@ -5033,27 +5225,12 @@ static void MGVK_BufferCopyAndFlush(MGG_GraphicsDevice* device, MGG_Buffer* buff
 
 void MGG_Buffer_Destroy(MGG_GraphicsDevice* device, MGG_Buffer* buffer)
 {
-	assert(device != nullptr);
-	assert(buffer != nullptr);
-
-	if (!buffer)
+	if (!device || !buffer)
 		return;
 
+	std::lock_guard lock(device->resourceMutex);
 	mg_remove(device->all_buffers, buffer);
-
-	// Push buffers can be freed immediately.
-	if (buffer->push)
-	{
-		delete [] buffer->push;
-		delete buffer;
-		return;
-	}
-
-	// Safe to unmap it now.
-	if (buffer->mapped)
-		vmaUnmapMemory(device->allocator, buffer->allocation);
-
-	// Queue the buffer for later destruction.
+	buffer->frame = device->frame;
 	device->destroyBuffers.push(buffer);
 }
 
@@ -5217,8 +5394,6 @@ MGG_Texture* MGG_Texture_Create(
 	texture->view = CreateImageView(device, texture, mipmaps);
 	VK_SET_OBJECT_NAME(device->device, texture->view, VK_OBJECT_TYPE_IMAGE_VIEW, "MGG_Texture.view (id: %llu)", texture->id);
 
-	device->all_textures.push_back(texture);
-
 	// Start the texture in optimal layout mode.
 	texture->optimal_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -5235,6 +5410,11 @@ MGG_Texture* MGG_Texture_Create(
 	}
 	for (int i = 0; i < mipmaps; i++)
 		texture->layouts[i] = texture->optimal_layout;
+
+	{
+		std::lock_guard lock(device->resourceMutex);
+		device->all_textures.push_back(texture);
+	}
 
 	return texture;
 }
@@ -5363,27 +5543,38 @@ MGG_Texture* MGG_RenderTarget_Create(
 		VK_SET_OBJECT_NAME(device->device, texture->depthTexture->target_view, VK_OBJECT_TYPE_IMAGE_VIEW, "MGG_Texture.depthTexture.target_view (for RT id: %llu)", texture->id);
 	}
 
-	device->all_textures.push_back(texture);
+	{
+		std::lock_guard lock(device->resourceMutex);
+		device->all_textures.push_back(texture);
+	}
 
 	return texture;
 }
 
 void MGG_Texture_Destroy(MGG_GraphicsDevice* device, MGG_Texture* texture)
 {
-	assert(device != nullptr);
-	assert(texture != nullptr);
-
-	if (!texture)
+	if (!device || !texture)
 		return;
 
+	std::lock_guard lock(device->resourceMutex);
+
 	if (texture->depthTexture)
+	{
 		MGG_Texture_Destroy(device, texture->depthTexture);
+		texture->depthTexture = nullptr;
+	}
+
+	mg_remove(device->all_textures, texture);
 
 	// If this is an externally owned texture (like an external swapchain or image wrapped in a RenderTarget2D).
+	// External render targets must be explicitly disposed on the render thread before the external caller destroys the underlying VkImage.
 	if (texture->isExternal && texture->allocation == VK_NULL_HANDLE)
 	{
 		// Wait for the device to be idle to safely destroy views before the external caller destroys the underlying VkImage.
-		vkDeviceWaitIdle(device->device);
+		{
+			std::lock_guard lock2(device->queueMutex);
+			vkDeviceWaitIdle(device->device);
+		}
 
 		if (texture->isTarget)
 		{
@@ -5431,6 +5622,7 @@ void MGG_Texture_Destroy(MGG_GraphicsDevice* device, MGG_Texture* texture)
 	}
 
 	// Queue the texture for later destruction.
+	texture->frame = device->frame;
 	device->destroyTextures.push(texture);
 }
 
@@ -5550,12 +5742,11 @@ void MGG_Texture_GetData(MGG_GraphicsDevice* device, MGG_Texture* texture, mgint
 	std::lock_guard lock(device->transferMutex);
 	MGVK_WaitPendingTransfers(device, texture);
 
-	std::lock_guard lock2(device->queueMutex);
-
-	auto& frame = device->frames[device->frameIndex];
-
 	if (texture->isTarget)
 	{
+		std::lock_guard lock2(device->queueMutex);
+		auto& frame = device->frames[device->frameIndex];
+
 		if (frame.is_recording && texture->frame == device->frame)
 		{
 			MGVK_FlushCommands(device, frame);
@@ -5584,7 +5775,7 @@ void MGG_Texture_GetData(MGG_GraphicsDevice* device, MGG_Texture* texture, mgint
 	vmaDestroyBuffer(device->allocator, buffer.buffer, buffer.allocation);
 
 	if (restart_frame)
-		MGVK_BeginCommandBuffer(frame.commandBuffer);
+		MGVK_BeginCommandBuffer(device->frames[device->frameIndex].commandBuffer);
 }
 
 MGG_InputLayout* MGG_InputLayout_Create(
@@ -5636,13 +5827,12 @@ MGG_InputLayout* MGG_InputLayout_Create(
 
 void MGG_InputLayout_Destroy(MGG_GraphicsDevice* device, MGG_InputLayout* layout)
 {
-	assert(device != nullptr);
-	assert(layout != nullptr);
-
-	if (layout == nullptr)
+	if (!device || !layout)
 		return;
 
-	delete layout;
+	std::lock_guard lock(device->resourceMutex);
+	layout->frame = device->frame;
+	device->destroyInputLayouts.push(layout);
 }
 
 MGG_Shader* MGG_Shader_Create(MGG_GraphicsDevice* device, MGShaderStage stage, mgbyte* bytecode, mgint sizeInBytes)
@@ -5685,8 +5875,6 @@ MGG_Shader* MGG_Shader_Create(MGG_GraphicsDevice* device, MGShaderStage stage, m
 	shader->id = ++device->currentShaderId;
 	VK_SET_OBJECT_NAME(device->device, shader->module, VK_OBJECT_TYPE_SHADER_MODULE, "MGG_Shader.module (id: %u)", shader->id);
 
-	device->all_shaders.push_back(shader);
-
 	// If the shader has no bindings we still need an empty layout
 	// to ensure that the descriptor sets are in the right slots.
 	if (layoutBindings.empty())
@@ -5703,6 +5891,10 @@ MGG_Shader* MGG_Shader_Create(MGG_GraphicsDevice* device, MGShaderStage stage, m
 		shader->poolInfo = nullptr;
 		shader->pool = nullptr;
 		shader->writes = nullptr;
+		{
+			std::lock_guard lock(device->resourceMutex);
+			device->all_shaders.push_back(shader);
+		}
 		return shader;
 	}
 
@@ -5814,49 +6006,23 @@ MGG_Shader* MGG_Shader_Create(MGG_GraphicsDevice* device, MGShaderStage stage, m
 		}
 	}
 
+	{
+		std::lock_guard lock(device->resourceMutex);
+		device->all_shaders.push_back(shader);
+	}
+
 	return shader;
 }
 
 void MGG_Shader_Destroy(MGG_GraphicsDevice* device, MGG_Shader* shader)
 {
-	assert(device != nullptr);
-	assert(shader != nullptr);
-
-	if (!shader)
+	if (!device || !shader)
 		return;
 
-	delete [] shader->bufferInfo;
-	delete [] shader->imageInfo;
-	delete [] shader->writes;
-
-	for (auto pair : shader->usedSets)
-	{
-		//vkFreeDescriptorSets(device->device, shader->pool, 1, &pair.second->set);
-		delete pair.second;
-	}
-
-	while (shader->freeSets.size() > 0)
-	{
-		auto free = shader->freeSets.front();
-		shader->freeSets.pop();
-
-		//vkFreeDescriptorSets(device->device, shader->pool, 1, &free->set);
-		delete free;
-	}
-
-	vkDestroyDescriptorSetLayout(device->device, shader->setLayout, nullptr);
-
-	vkDestroyDescriptorPool(device->device, shader->pool, nullptr);
-	if (shader->poolInfo)
-	{
-		delete [] shader->poolInfo->pPoolSizes;
-		delete shader->poolInfo;
-	}
-
-	vkDestroyShaderModule(device->device, shader->module, nullptr);
-
+	std::lock_guard lock(device->resourceMutex);
 	mg_remove(device->all_shaders, shader);
-	delete shader;
+	shader->frame = device->frame;
+	device->destroyShaders.push(shader);
 }
 
 MGG_OcclusionQuery* MGG_OcclusionQuery_Create(MGG_GraphicsDevice* device)
@@ -5879,19 +6045,12 @@ MGG_OcclusionQuery* MGG_OcclusionQuery_Create(MGG_GraphicsDevice* device)
 
 void MGG_OcclusionQuery_Destroy(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query)
 {
-	assert(device != nullptr);
-	assert(query != nullptr);
-
-	if (!query)
+	if (!device || !query)
 		return;
 
-	if (query->queryPool != VK_NULL_HANDLE)
-	{
-		vkDeviceWaitIdle(device->device);
-		vkDestroyQueryPool(device->device, query->queryPool, nullptr);
-	}
-
-	delete query;
+	std::lock_guard lock(device->resourceMutex);
+	query->frame = device->frame;
+	device->destroyQueries.push(query);
 }
 
 void MGG_OcclusionQuery_Begin(MGG_GraphicsDevice* device, MGG_OcclusionQuery* query)
